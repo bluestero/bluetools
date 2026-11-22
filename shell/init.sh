@@ -24,4 +24,5 @@ if command -v direnv >/dev/null 2>&1; then
 fi
 
 . "$_bluetools_shell/okcli.sh"
+. "$_bluetools_shell/kx.sh"
 unset _bluetools_shell

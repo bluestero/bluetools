@@ -1,2 +1,3 @@
 # bluetools' commands, for tk's picker and help: name|group|what it does|program it needs
 okcli|Cloud|Okta AWS profiles: switch, refresh, default, folder pins|okta-aws-cli
+kx|Cloud|Kubernetes contexts and namespaces, per terminal|kubectl

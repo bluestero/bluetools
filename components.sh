@@ -2,7 +2,8 @@
 # helpers are here: ask, ok, skip, warn, fail, dry, linked, link_file, unlink_file, set_block,
 # apt_install, and the release helpers get_tool, gh_tool, tool_state, drop_tool (docs/LAYERS.md).
 
-COMPONENTS+=(okta-aws-cli aws-cli direnv)
+bluetools_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMPONENTS+=(okta-aws-cli aws-cli direnv kubectl eks-clusters)
 
 # ------------------------------------------------------------- okcli ---
 # okta-aws-cli and the AWS CLI (okcli), direnv (okcli pin): the newest release for this CPU,
@@ -60,6 +61,66 @@ state_direnv() { tool_state direnv; }
 install_direnv() { get_tool direnv "okcli pin needs it" "about 10 MB" fetch_direnv; }
 fetch_direnv() { gh_tool direnv/direnv "direnv.linux-$(dl_arch)" direnv; }
 uninstall_direnv() { drop_tool direnv; }
+
+# ---------------------------------------------------------------- kx ---
+# kubectl (kx), and the EKS clusters kx shows.
+group_kubectl() { echo Cloud; }
+requires_kubectl() { echo linux; }
+ver_kubectl() { "$1" version --client; }
+label_kubectl() { echo "kubectl"; }
+title_kubectl() { echo "kubectl, which kx runs on"; }
+detail_kubectl() { echo "latest stable kubectl from dl.k8s.io (sha256-checked) in ~/.local/bin"; }
+state_kubectl() { tool_state kubectl; }
+doctor_kubectl() {   # tk doctor: kx's own checks, and its shell hook
+  type -P kx >/dev/null && kx doctor
+  [[ -n ${KX_SHELL:-} ]] && echo "✓ shell hook" || echo "! kx's shell hook isn't loaded — tk install bash"
+}
+install_kubectl() { get_tool kubectl "kx runs on it" "about 60 MB" fetch_kubectl; }
+fetch_kubectl() {
+  local v url sum tmp rc=1
+  v=$(curl -fsS -m 10 https://dl.k8s.io/release/stable.txt 2>>"$log_file") || { warn "couldn't find the latest kubectl (offline?)"; return 1; }
+  url="https://dl.k8s.io/release/$v/bin/linux/$(dl_arch)/kubectl"
+  sum=$(curl -fsS -m 10 "$url.sha256" 2>>"$log_file") || { warn "couldn't get kubectl's checksum"; return 1; }
+  tmp=$(mktemp -d)
+  fetch_checked "$url" "$sum" "$tmp/kubectl" && mkdir -p "$HOME/.local/bin" &&
+    install -m 755 "$tmp/kubectl" "$HOME/.local/bin/kubectl" && rc=0
+  rm -rf "$tmp"
+  (( rc )) || logf "kubectl $v installed to ~/.local/bin"
+  return "$rc"
+}
+uninstall_kubectl() { drop_tool kubectl; }
+
+# -------------------------------------------------------- eks-clusters ---
+# Runs kx sync: tick the AWS accounts to search, then the clusters to add.
+# Unticked ones go in ~/.config/kx/ignore, so later syncs skip them.
+kx_ignore_file="${XDG_CONFIG_HOME:-$HOME/.config}/kx/ignore"
+eks_contexts() { KUBECONFIG="${KX_BASE_KUBECONFIG:-$HOME/.kube/config}" kubectl config get-contexts -o name 2>/dev/null | grep -c .; }
+group_eks_clusters() { echo Cloud; }
+NEEDS[eks-clusters]="kubectl aws-cli"
+label_eks_clusters() { echo "EKS clusters"; }
+title_eks_clusters() { echo "Pick which AWS accounts and EKS clusters kx shows"; }
+detail_eks_clusters() { echo "runs kx sync: ticked clusters go in ~/.kube/config, unticked ones in ~/.config/kx/ignore (kx ignore / kx sync to change later)"; }
+state_eks_clusters() {
+  local n; NOTE=""
+  type -P kubectl >/dev/null && type -P aws >/dev/null || { STATE=n/a; NOTE="needs kubectl and the aws CLI"; return; }
+  n=$(eks_contexts)
+  if (( n )) || [[ -e $kx_ignore_file ]]; then STATE=installed; NOTE="$n context(s) · kx sync / kx ignore to change"
+  else STATE=missing; fi
+}
+install_eks_clusters() {
+  (( $(eks_contexts) )) && { ok "already set up ${D}(kx sync / kx ignore to change)${R}"; return; }
+  if dry; then say "      ${D}would run kx sync: tick AWS accounts, then the clusters to add${R}"; return; fi
+  if ! "$bluetools_root/bin/okcli" __profiles 2>/dev/null | grep -q .; then
+    warn "okcli has no AWS profiles yet: run ${B}okcli sync${R}, then ${B}kx sync${R}"; return
+  fi
+  [[ $mode == yes ]] && { skip "pick them yourself: kx sync"; return; }
+  ask "Pick your EKS clusters now? (tick accounts, then clusters; unticked ones are skipped from now on)" || { skip "later: kx sync"; return; }
+  if "$bluetools_root/bin/kx" sync </dev/tty >/dev/tty 2>&1; then ok "done ${D}(kx ignore shows what's skipped)${R}"
+  else warn "kx sync didn't finish; run it again with: kx sync"; fi
+}
+uninstall_eks_clusters() {
+  ok "your clusters stay in ~/.kube/config (kx rm <context> removes one); the skip list stays in ${kx_ignore_file/#$HOME/\~}"
+}
 
 # ------------------------------------------------------- Bluetooth audio ---
 btl="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
