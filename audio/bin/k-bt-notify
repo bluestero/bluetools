@@ -1,0 +1,56 @@
+#!/usr/bin/env -S python3 -I
+"""k-bt-notify: a short notification when Bluetooth earbuds switch mode on their own
+(Handsfree when a call opens the mic, Headset when it closes). Started at login by the
+bt-notify part (a systemd user service). It sleeps on `pw-dump --monitor`, which only
+prints when PipeWire changes, so it costs nothing while nothing happens."""
+import json, subprocess
+
+MODES = [("a2dp-sink", "Headset · music", "audio-headphones"),
+         ("headset-head-unit", "Handsfree · mic on", "audio-headset")]
+
+
+def mode(profile):
+    return next((m for m in MODES if profile.startswith(m[0])), None)
+
+
+def chunks(stream):
+    """pw-dump --monitor prints one JSON array per change, closed by a "]" line of its own;
+    yield each as it arrives (parsed once, not on every line: the first one is ~10k lines)"""
+    buf = []
+    for line in stream:
+        buf.append(line)
+        if line.rstrip("\n") == "]":
+            try:
+                yield json.loads("".join(buf))
+            except ValueError:
+                pass
+            buf = []
+
+
+def main():
+    last = {}        # device id: its profile name; a device seen for the first time sets it quietly
+    note_id = "0"    # one notification at a time: a new switch replaces the last one
+    # stdbuf: pw-dump holds its output back when it goes to a pipe, which made notes seconds late
+    p = subprocess.Popen(["stdbuf", "-oL", "pw-dump", "--monitor", "--no-colors"], stdout=subprocess.PIPE, text=True)
+    for arr in chunks(p.stdout):
+        for o in arr:
+            info = o.get("info")
+            if info is None:                    # the device went away
+                last.pop(o.get("id"), None)
+                continue
+            props, prof = info.get("props") or {}, (info.get("params") or {}).get("Profile")
+            if props.get("device.api") != "bluez5" or props.get("media.class") != "Audio/Device" or not prof:
+                continue
+            name, before = prof[0].get("name", ""), last.get(o["id"])
+            last[o["id"]] = name
+            new, old = mode(name), mode(before or "")
+            if before is None or not new or not old or new == old:   # first seen, off, or no real change
+                continue
+            r = subprocess.run(["notify-send", "-e", "-p", "-r", note_id, "-a", "Earbuds", "-i", new[2],
+                                props.get("device.description", "Bluetooth audio"), new[1]],
+                               capture_output=True, text=True)
+            note_id = r.stdout.strip() or "0"
+
+
+if __name__ == "__main__":
+    main()

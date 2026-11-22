@@ -60,3 +60,77 @@ state_direnv() { tool_state direnv; }
 install_direnv() { get_tool direnv "okcli pin needs it" "about 10 MB" fetch_direnv; }
 fetch_direnv() { gh_tool direnv/direnv "direnv.linux-$(dl_arch)" direnv; }
 uninstall_direnv() { drop_tool direnv; }
+
+# ------------------------------------------------------- Bluetooth audio ---
+btl="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMPONENTS+=(bt-audio bt-notify)
+group_bt_audio() { echo "Desktop (GNOME)"; }; group_bt_notify() { echo "Desktop (GNOME)"; }
+requires_bt_audio() { echo linux; }; requires_bt_notify() { echo linux; }
+
+# ------------------------------------------------------------ bt-audio ---
+# Bluetooth earbuds on PipeWire + WirePlumber 0.4 (Ubuntu 24.04). Two settings files, linked in:
+#  - the laptop only sends audio over Bluetooth: earbuds that also advertise "Audio Source" otherwise
+#    open a backwards music link when they reconnect, and Headset (music) mode never shows up;
+#  - browser, Slack, Discord and Teams mics count as calls, so WirePlumber switches the earbuds to
+#    Handsfree while one is open and back to Headset when it closes (it does so already for apps
+#    that say they are a call, and a few browsers by name).
+bta_roles="$HOME/.config/wireplumber/bluetooth.lua.d/51-unikit-roles.lua"; bta_roles_src="$btl/audio/wireplumber/51-unikit-roles.lua"
+bta_calls="$HOME/.config/pipewire/pipewire-pulse.conf.d/51-unikit-calls.conf"; bta_calls_src="$btl/audio/51-unikit-calls.conf"
+bta_wp() { wireplumber --version 2>/dev/null | sed -n 's/.*libwireplumber \([0-9.]*\).*/\1/p'; }
+label_bt_audio() { echo "Bluetooth earbuds"; }
+title_bt_audio() { echo "earbuds keep music mode after reconnecting, and switch to Handsfree while a call (browser, Slack) has the mic"; }
+detail_bt_audio() { echo "${bta_roles/#$HOME/\~} -> bluetools/audio/wireplumber/51-unikit-roles.lua, ${bta_calls/#$HOME/\~} -> bluetools/audio/51-unikit-calls.conf; takes effect at the next login"; }
+touches_bt_audio() { echo "$bta_roles"; echo "$bta_calls"; }
+state_bt_audio() { NOTE=""
+  local v; v=$(bta_wp)
+  [[ -n $v ]] || { STATE=unsupported; NOTE="needs PipeWire with WirePlumber"; return; }
+  [[ $v == 0.4.* ]] || { STATE=unsupported; NOTE="needs WirePlumber 0.4 (this is $v)"; return; }
+  local n=0
+  linked "$bta_roles" "$bta_roles_src" && (( n++ ))
+  linked "$bta_calls" "$bta_calls_src" && (( n++ ))
+  if (( n == 2 )); then STATE=installed; elif (( n )); then STATE=partial; else STATE=missing; fi; }
+install_bt_audio() {
+  if linked "$bta_roles" "$bta_roles_src" && linked "$bta_calls" "$bta_calls_src"; then ok "already installed"; return; fi
+  ask "Keep Bluetooth earbuds in music mode after they reconnect, and switch them to Handsfree during calls?" || { skip; return; }
+  dry && return 0
+  link_file "$bta_roles" "$bta_roles_src" || return 1
+  link_file "$bta_calls" "$bta_calls_src" || return 1
+  warn "log out and back in once (restarting audio now would leave open apps without sound)"
+}
+uninstall_bt_audio() {
+  unlink_file "$bta_roles" "$bta_roles_src"
+  unlink_file "$bta_calls" "$bta_calls_src"
+}
+
+# ----------------------------------------------------------- bt-notify ---
+# A short notification when earbuds switch mode on their own (bluetools/audio/bin/k-bt-notify), started at
+# login by a systemd user service. It sleeps on PipeWire's change feed: no polling, no cost when idle.
+btn_unit="$HOME/.config/systemd/user/k-bt-notify.service"
+btn_body() { printf '%s\n' "[Unit]" "Description=unikit: notify when Bluetooth earbuds switch mode" \
+  "After=pipewire.service" "" "[Service]" "ExecStart=$btl/audio/bin/k-bt-notify" "Restart=on-failure" "RestartSec=5" \
+  "" "[Install]" "WantedBy=default.target"; }
+btn_on() { systemctl --user is-enabled k-bt-notify.service >/dev/null 2>&1; }
+label_bt_notify() { echo "Earbud mode notifications"; }
+title_bt_notify() { echo "a short notification when earbuds switch to Handsfree (mic on) and back to Headset (music)"; }
+detail_bt_notify() { echo "${btn_unit/#$HOME/\~} runs bluetools/audio/bin/k-bt-notify at login (systemd user service)"; }
+state_bt_notify() { NOTE=""
+  type -P pw-dump >/dev/null || { STATE=unsupported; NOTE="needs PipeWire"; return; }
+  local n=0
+  [[ $(cat "$btn_unit" 2>/dev/null) == "$(btn_body)" ]] && (( n++ ))
+  btn_on && (( n++ ))
+  if (( n == 2 )); then STATE=installed; elif (( n )) || [[ -e $btn_unit ]]; then STATE=partial; else STATE=missing; fi; }
+install_bt_notify() {
+  if [[ $(cat "$btn_unit" 2>/dev/null) == "$(btn_body)" ]] && btn_on; then ok "already installed"; return; fi
+  ask "Show a short notification when earbuds switch between Headset and Handsfree?" || { skip; return; }
+  dry && return 0
+  mkdir -p "${btn_unit%/*}" && btn_body >"$btn_unit" || return 1
+  systemctl --user daemon-reload >>"$log_file" 2>&1
+  systemctl --user enable --now k-bt-notify.service >>"$log_file" 2>&1 && ok "on (uninstall bt-notify to turn it off)" ||
+    { fail "systemctl could not start it (see $log_file)"; return 1; }
+}
+uninstall_bt_notify() {
+  [[ -e $btn_unit ]] || return 0
+  systemctl --user disable --now k-bt-notify.service >>"$log_file" 2>&1
+  rm -f "$btn_unit"; systemctl --user daemon-reload >>"$log_file" 2>&1
+  ok "removed"
+}
