@@ -3,7 +3,9 @@
 # apt_install, and the release helpers get_tool, gh_tool, tool_state, drop_tool (docs/LAYERS.md).
 
 bluetools_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPONENTS+=(okta-aws-cli aws-cli direnv kubectl eks-clusters twingate gh clipboard)
+COMPONENTS+=(okta-aws-cli aws-cli direnv kubectl eks-clusters twingate gh clipboard zed vscode bluetools-window-calls repos)
+GROUP_ABOUT[Apps]="Programs the commands use: gh for hat's GitHub sign-ins, a clipboard tool, Zed or VS Code and Window Calls for ws."
+GROUP_ABOUT[Workspaces]="Your repos, cloned from your workspace list (ws edit)."
 GROUP_ABOUT[Cloud]="What okcli, kx and twin run on: Okta sign-in for AWS, the aws command, kubectl, your EKS clusters, Twingate."
 
 # ------------------------------------------------------------- okcli ---
@@ -186,6 +188,237 @@ install_clipboard() {
   dry || { apt_install "$(clip_pkg)" && ok "installed" || fail "apt failed (see $log_file)"; }
 }
 uninstall_clipboard() { apt_drop "$(clip_pkg)" "$(clip_pkg)"; }
+
+# ---------------------------------------------------------------- ws ---
+# Zed's own installer: ~/.local/zed.app, zed in ~/.local/bin, its launcher entry (no sudo)
+group_zed() { echo Apps; }
+requires_zed() { echo linux; }
+label_zed() { echo "Zed"; }
+title_zed() { echo "The Zed editor, which ws opens workspaces in"; }
+detail_zed() { echo "Zed's installer (zed.dev): ~/.local/zed.app, zed in ~/.local/bin, a launcher entry; no sudo"; }
+state_zed() { tool_state zed; }
+install_zed() {
+  type -P zed >/dev/null && { ok "zed is already installed"; return; }
+  ask "Install Zed? (Zed's installer, into ~/.local; about 150 MB, no sudo)" || { skip; return; }
+  dry && return
+  local tmp; tmp=$(mktemp)
+  if curl -fsSL --retry 2 -o "$tmp" https://zed.dev/install.sh 2>>"$log_file" && sh "$tmp" >>"$log_file" 2>&1 &&
+    type -P zed >/dev/null; then ok "installed"
+  else fail "not installed (see $log_file)"; fi
+  rm -f "$tmp"
+}
+uninstall_zed() {
+  [[ -d $HOME/.local/zed.app ]] || { drop_tool zed; return; }
+  ask "Remove Zed? (your Zed settings stay)" n || { ok "Zed stays"; return; }
+  dry || { zed --uninstall >>"$log_file" 2>&1 </dev/null || rm -rf "$HOME/.local/zed.app" "$HOME/.local/bin/zed"; ok "removed"; }
+}
+
+# Microsoft's .deb (it adds Microsoft's apt source, so apt keeps it up to date)
+group_vscode() { echo Apps; }
+requires_vscode() { echo apt; }
+label_vscode() { echo "VS Code"; }
+title_vscode() { echo "VS Code, which ws can open workspaces in"; }
+detail_vscode() { echo "Microsoft's .deb from code.visualstudio.com via apt (sudo); it adds Microsoft's apt source"; }
+state_vscode() { tool_state code; }
+install_vscode() {
+  type -P code >/dev/null && { ok "VS Code is already installed"; return; }
+  local a; case "$(dl_arch)" in amd64) a=x64 ;; arm64) a=arm64 ;; *) skip "no download for this machine"; return ;; esac
+  ask "Install VS Code? (Microsoft's .deb, about 110 MB; apt, needs sudo)" || { skip; return; }
+  dry && return
+  local tmp; tmp=$(mktemp -d)
+  if curl -fsSL --retry 2 -o "$tmp/code.deb" "https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-$a" 2>>"$log_file"; then
+    chmod 644 "$tmp/code.deb"; chmod 755 "$tmp"   # apt's own user reads it
+    say "      ${D}sudo may ask for your password${R}"
+    as_root apt-get install -y "$tmp/code.deb" >>"$log_file" 2>&1 && ok "installed" || fail "apt failed (see $log_file)"
+  else fail "couldn't download VS Code (offline?)"; fi
+  rm -rf "$tmp"
+}
+uninstall_vscode() { apt_drop code "VS Code"; }
+
+# ---------------------------------------------- bluetools-window-calls ---
+# GNOME extension that lets scripts list, focus and close windows over D-Bus.
+# ws uses it to close a workspace's window and to read open windows exactly. Another layer may
+# bring a part for the same extension (same touches_): the second finds it set up and does
+# nothing, and an uninstall leaves it while another layer's part has it set up.
+btwc_uuid="window-calls@domandoman.xyz"
+btwc_enabled() { gsettings get org.gnome.shell enabled-extensions 2>/dev/null | grep -q "'$btwc_uuid'"; }
+btwc_present() { [[ -d "$HOME/.local/share/gnome-shell/extensions/$btwc_uuid" ]]; }
+btwc_live() { gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell/Extensions/Windows \
+  --method org.gnome.Shell.Extensions.Windows.List >/dev/null 2>&1; }
+label_bluetools_window_calls() { echo "Window Calls"; }
+title_bluetools_window_calls() { echo "Let ws close and focus editor windows (GNOME extension; log out once)"; }
+touches_bluetools_window_calls() { echo "$HOME/.local/share/gnome-shell/extensions/$btwc_uuid"; }
+group_bluetools_window_calls() { echo Apps; }
+requires_bluetools_window_calls() { echo gnome; }
+detail_bluetools_window_calls() { echo "GNOME extension $btwc_uuid from extensions.gnome.org into ~/.local/share/gnome-shell/extensions"; }
+state_bluetools_window_calls() {
+  NOTE=""
+  type -P gnome-shell >/dev/null || { STATE=unsupported; NOTE="needs GNOME"; return; }
+  if btwc_present && btwc_enabled; then
+    if btwc_live; then STATE=installed; else STATE=partial; NOTE="log out and back in to load it"; fi
+  elif btwc_present; then STATE=partial; NOTE="installed, not enabled"
+  else STATE=missing; fi
+}
+install_bluetools_window_calls() {
+  local ver url tmp
+  if btwc_present && btwc_enabled; then
+    btwc_live && ok "already active" || ok "installed; log out and back in once to load it"
+    return
+  fi
+  if ! btwc_present; then
+    ask "Download Window Calls from extensions.gnome.org and install it?" || { skip; return; }
+    ver=$(gnome-shell --version | grep -oE '[0-9]+' | head -1)
+    url=$(curl -fsS "https://extensions.gnome.org/extension-info/?uuid=$btwc_uuid&shell_version=$ver" |
+      python3 -Ic 'import json,sys; print(json.load(sys.stdin)["download_url"])' 2>/dev/null)
+    [[ -n "$url" ]] || { fail "no Window Calls release for GNOME $ver"; return; }
+    tmp=$(mktemp --suffix=.zip)
+    if curl -fsSL -o "$tmp" "https://extensions.gnome.org$url" && gnome-extensions install --force "$tmp" >>"$log_file" 2>&1; then
+      ok "installed"; logf "  from https://extensions.gnome.org$url"
+    else rm -f "$tmp"; fail "download or install failed (see the log)"; return; fi
+    rm -f "$tmp"
+  fi
+  # `gnome-extensions enable` can't see it until GNOME reloads, so add it to the list directly
+  # (and off the disabled list, where an uninstall leaves it).
+  dry || ext_list add "$btwc_uuid"
+  ok "enabled"
+  warn "log out and back in once (Wayland loads new extensions only at login)"
+}
+uninstall_bluetools_window_calls() {
+  btwc_present || { ok "not installed"; return; }
+  shared_keep bluetools-window-calls && return
+  gnome-extensions disable "$btwc_uuid" >/dev/null 2>&1
+  python3 -I - "$btwc_uuid" <<'PY'
+import ast, subprocess, sys
+cur = subprocess.run(["gsettings", "get", "org.gnome.shell", "enabled-extensions"], capture_output=True, text=True).stdout.strip()
+lst = ast.literal_eval(cur.removeprefix("@as ")) if cur else []
+if sys.argv[1] in lst:
+    subprocess.run(["gsettings", "set", "org.gnome.shell", "enabled-extensions", str([x for x in lst if x != sys.argv[1]])], check=True)
+PY
+  if gnome-extensions uninstall "$btwc_uuid" >/dev/null 2>&1 || rm -rf "$HOME/.local/share/gnome-shell/extensions/$btwc_uuid"; then
+    ok "removed (ws close stops working; everything else in ws stays)"
+  fi
+}
+
+# --------------------------------------------------------------- repos ---
+# Clones what your workspace list names (lines with a GitHub repo) that isn't there
+# yet: the layers' shared lists (layers/*/workspaces) plus your own (~/.config/ws/workspaces).
+# shellcheck source=lib/workspaces.sh
+. "$bluetools_root/lib/workspaces.sh"
+repos_todo() {   # <path><TAB><owner/repo> for each listed repo not cloned yet
+  local p r
+  while IFS=$'\t' read -r p r; do
+    [[ -n $r && ! -e $p/.git ]] && printf '%s\t%s\n' "$p" "$r"
+  done < <(ws_list)
+}
+# ask_ws_folder NAME "<what goes there>": when the folder a workspace variable
+# names ($ACME, ...) doesn't exist yet, show where it would go and let you keep
+# that or type another (~/..., /..., or a path inside your home folder), then
+# create it and save it in your list. 0 = the folder is there now.
+ask_ws_folder() {
+  local name=$1 what=$2 cur dir
+  cur=$(ws_var "$name")
+  [[ -n $cur && -d $cur ]] && return 0
+  [[ -n $cur ]] && cur=${cur/#$HOME/\~} || cur="~/$name"
+  while :; do
+    ask_text "Folder for $what (\$$name)? Enter keeps it; type another to change it" "$cur" || { skip; return 1; }
+    dir=$ANSWER
+    [[ $dir == "~" || $dir == "~/"* ]] && dir="$HOME${dir:1}"
+    [[ $dir == /* ]] || dir="$HOME/$dir"
+    dir=$(realpath -m -- "$dir")
+    if [[ -z $ANSWER || $ANSWER == *$'\t'* ]]; then warn "that isn't a folder path"
+    elif [[ $dir == / || $dir == "$HOME" ]]; then warn "pick a folder of its own, not ${dir/#$HOME/\~}"
+    elif [[ -e $dir && ! -d $dir ]]; then warn "${dir/#$HOME/\~} is a file, not a folder"
+    elif dry; then say "      ${D}would create ${dir/#$HOME/\~} and save $name there in your list${R}"; return 0
+    elif ! mkdir -p -- "$dir" 2>/dev/null; then warn "can't create ${dir/#$HOME/\~} (no permission?)"
+    else
+      ws_set_var "$name" "$dir"
+      ok "$name → ${dir/#$HOME/\~} ${D}(saved in $(ws_list_file | sed "s|^$HOME|~|"); ws edit changes it)${R}"
+      return 0
+    fi
+    [[ $mode == yes ]] && return 1   # --yes can't ask again
+    cur=$ANSWER
+  done
+}
+
+group_repos() { echo Workspaces; }
+label_repos() { echo "Workspace repos"; }
+title_repos() { echo "Clone the repos in your workspace list (ws edit) that aren't there yet"; }
+detail_repos() { echo "git clone over SSH into the folders your workspace list names; creates ~/.config/ws/workspaces"; }
+state_repos() {
+  local all todo
+  all=$(ws_list | awk -F'\t' '$2 != ""' | wc -l)
+  todo=$(repos_todo | grep -c . )
+  NOTE=""
+  if (( todo == 0 )); then STATE=installed
+  elif (( todo < all )); then STATE=partial; NOTE="$((all - todo)) of $all cloned"
+  else STATE=missing; fi
+}
+install_repos() {
+  local out p r labels=() todo=() on="" i
+  # Your own list, outside the repo (team repos included); edit it with: ws edit
+  if [[ ! -e "$(ws_list_file)" ]] && ! dry; then
+    ws_personal_init >/dev/null && ok "your workspace list: $(ws_list_file | sed "s|^$HOME|~|") ${D}(ws edit)${R}"
+  fi
+  # where each group of repos goes ($ACME, ...), asked once while its folder isn't there
+  local v vd
+  while IFS= read -r v; do
+    vd=$(ws_var "$v")
+    [[ -n $vd && ! -d $vd ]] && repos_todo | grep -q "^$vd/" && ask_ws_folder "$v" "the repos under \$$v"
+  done < <(ws_vars)
+  mapfile -t todo < <(repos_todo)
+  (( ${#todo[@]} )) || { ok "all cloned"; return; }
+  # Check GitHub SSH first: one clear message instead of a failure per repo.
+  out=$(ssh -T -o BatchMode=yes -o ConnectTimeout=8 git@github.com 2>&1)
+  if [[ $out != *"successfully authenticated"* ]]; then
+    fail "GitHub SSH auth isn't working, so skipping repos: $(head -1 <<<"$out")"
+    say "      ${D}Check: ssh -T git@github.com · then: ./install.sh repos${R}"
+    return
+  fi
+  ok "GitHub SSH works ($(grep -o 'Hi [^!]*' <<<"$out"))"
+  if dry; then
+    for i in "${todo[@]}"; do say "      ${D}would clone ${i#*$'\t'} → ${i%%$'\t'*}${R}" | sed "s|$HOME|~|"; done
+    return
+  fi
+  if [[ $mode == ask ]]; then
+    for i in "${!todo[@]}"; do
+      labels+=("$(basename "${todo[i]%%$'\t'*}")"$'\t'"${todo[i]#*$'\t'}"); on+="$i "
+    done
+    CHECKLIST_ON=$on checklist "      Missing repos (all ticked; space unticks):" "${labels[@]}" || { skip; return; }
+    local picked=(); for i in "${CHECKLIST[@]}"; do picked+=("${todo[i]}"); done
+    todo=("${picked[@]}")
+    (( ${#todo[@]} )) || { skip "nothing picked"; return; }
+  fi
+  for i in "${todo[@]}"; do
+    p=${i%%$'\t'*}; r=${i#*$'\t'}
+    if [[ -e $p ]]; then warn "$(basename "$p"): folder exists but isn't a git repo, left alone"; continue; fi
+    mkdir -p "$(dirname "$p")"
+    if git clone -q "git@github.com:$r.git" "$p" >>"$log_file" 2>&1; then ok "$(basename "$p")"
+    else warn "$(basename "$p"): couldn't clone $r (no access, or it doesn't exist); skipped"; fi
+  done
+}
+# clone_unpushed <dir>: 0 when the clone holds work that isn't on GitHub yet
+# (uncommitted, no upstream, or commits not pushed), so it must never be deleted.
+clone_unpushed() {
+  [[ -n $(git -C "$1" status --porcelain 2>/dev/null) ]] && return 0
+  git -C "$1" rev-parse '@{u}' >/dev/null 2>&1 || return 0
+  [[ -n $(git -C "$1" log --oneline '@{u}..' 2>/dev/null) ]]
+}
+uninstall_repos() {
+  local p r safe=() kept=() names d n
+  while IFS=$'\t' read -r p r; do
+    [[ -n $r && -d $p/.git && $p == "$HOME"/?* ]] || continue
+    if clone_unpushed "$p"; then kept+=("$p"); else safe+=("$p"); fi
+  done < <(ws_list)
+  (( ${#safe[@]} + ${#kept[@]} )) || { ok "no cloned workspace repos found"; return 0; }
+  for d in "${kept[@]}"; do warn "${d/#$HOME/\~} has work that isn't on GitHub yet (uncommitted or not pushed), so it stays"; done
+  (( ${#safe[@]} )) || return 0
+  if [[ $mode == yes ]]; then ok "the ${#safe[@]} clones stay (--yes never deletes folders)"; return 0; fi
+  n=${#safe[@]}; names=$(printf '%s, ' "${safe[@]:0:4}" | sed "s|$HOME|~|g; s|, \$||")
+  (( n > 4 )) && names+=", and $(( n - 4 )) more"
+  if ask "Also delete $n workspace clone(s) with nothing unpushed? ($names)" n; then
+    dry || { for d in "${safe[@]}"; do rm -rf -- "$d"; done; ok "$n clone(s) deleted"; }
+  else ok "the clones stay"; fi
+}
 
 # ------------------------------------------------------- Bluetooth audio ---
 btl="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
