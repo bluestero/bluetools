@@ -422,7 +422,7 @@ uninstall_repos() {
 
 # ------------------------------------------------------------ claude ---
 # Claude Code's start hook (ctx plain) and PROD guard, in every Claude profile (unikit's
-# claude_each / claude_state). The work-toolkit skill is in claude/skills/: unikit's
+# claude_each / claude_state). The bluetools skill is in claude/skills/: unikit's
 # claude-skill part links it.
 # The hook is the one SessionStart entry whose command is $ch_cmd (the guard: the one
 # PreToolUse entry for Bash whose command is $cgd_cmd). settings.json is edited as

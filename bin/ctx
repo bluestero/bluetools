@@ -125,7 +125,7 @@ fi
 # For Claude: one labelled line each, no box, icons or columns to line up.
 if (( PLAIN )); then
   tag() { is_prod "$1" && printf ' (PROD)'; }
-  echo "work-toolkit context (from ctx, in $(pwd | sed "s|^$HOME|~|")):"
+  echo "bluetools context (from ctx, in $(pwd | sed "s|^$HOME|~|")):"
   if [[ -n "$aws_p" ]]; then
     echo "AWS profile: $aws_p$(tag "$aws_p $aws_acct"), ${aws_left:-session unknown}, account ${aws_acct:-not managed by okcli}${aws_role:+, role $aws_role}"
   elif has okcli; then echo "AWS profile: none"; fi

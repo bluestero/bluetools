@@ -24,7 +24,7 @@ unikit shows what of it runs on your machine and asks first; then it offers to s
 | `twin` | Twingate exit nodes: pick one, switch, off |
 | `ws` | open workspaces (repos) in Zed or VS Code, focus open ones; your list plus layers' shared `workspaces` lists |
 | `tk __guard` | Claude Code's PROD guard (`tk/__guard`, run by the claude-guard part's hook) |
-| `work-toolkit` skill | teaches Claude Code these tools: which account and cluster, what to ask first (`claude/skills/`) |
+| `bluetools` skill | teaches Claude Code these tools: which account and cluster, what to ask first (`claude/skills/`) |
 | `okta-aws-cli` part | okta-aws-cli from GitHub in `~/.local/bin`: okcli signs in with it |
 | `aws-cli` part | AWS CLI v2 in `~/.local/aws-cli`: `okcli whoami`, kx's EKS sign-in |
 | `direnv` part | direnv in `~/.local/bin`: `okcli pin` switches the profile per folder |

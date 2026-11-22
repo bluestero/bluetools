@@ -108,7 +108,7 @@ ask, note = ([l for l in a.splitlines() if l] for a in sys.argv[1:])
 out = {"hookEventName": "PreToolUse"}
 if ask:   # the reason shows in the user's prompt; the context tells Claude why
     out["permissionDecision"] = "ask"
-    out["permissionDecisionReason"] = "work-toolkit guard: " + "; ".join(ask + note)
-out["additionalContext"] = "work-toolkit guard: " + "; ".join(ask + note)
+    out["permissionDecisionReason"] = "bluetools guard: " + "; ".join(ask + note)
+out["additionalContext"] = "bluetools guard: " + "; ".join(ask + note)
 print(json.dumps({"hookSpecificOutput": out}))
 PY

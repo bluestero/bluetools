@@ -1,5 +1,5 @@
 """bluetools' Claude parts in a scratch copy of unikit (this layer included) with a scratch HOME:
-the start hook, the PROD guard (tk __guard) and the work-toolkit skill go in every profile; a
+the start hook, the PROD guard (tk __guard) and the bluetools skill go in every profile; a
 profile without the hook is partial; the guard without tk needs a fix."""
 import os
 import shutil
@@ -50,7 +50,7 @@ def test_claude_parts_go_in_every_profile(sb):
     for d in PROFILES:
         text = sb.read(d + "/settings.json") or ""
         assert "ctx plain" in text and "tk __guard" in text, (d, text)
-        assert os.path.islink(sb.path(d + "/skills/work-toolkit")), d
+        assert os.path.islink(sb.path(d + "/skills/bluetools")), d
     out = sh(sb, repo, "for id in claude-skill claude-hook claude-guard; do component_state $id; echo $id $STATE; done")
     assert out.split() == ["claude-skill", "installed", "claude-hook", "installed", "claude-guard", "installed"], out
 

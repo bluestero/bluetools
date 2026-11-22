@@ -1,9 +1,9 @@
 ---
-name: work-toolkit
+name: bluetools
 description: The user's work shell toolkit (okcli for Okta AWS profiles and repo pins, kx for Kubernetes contexts, ctx, twin, ws, tk, hat). Use before running any aws, kubectl, helm, terraform or eks command, when a repo has an .envrc pin, when asked which AWS account/cluster/access level applies, when asked which GitHub account or Claude profile a folder uses, or when the user mentions okcli, kx, ctx, twin, ws, tk or hat.
 ---
 
-# Work toolkit
+# bluetools
 
 A set of shell commands (`uk status` shows the toolkit's folder; `tk ls` lists every command,
 including the ones its layers add; `uk layers` lists the layers).
@@ -42,7 +42,7 @@ role only when the job needs it.
 A guard hook runs before your Bash commands: it has the user approve a command that changes
 something on PROD, or a bare `aws`/`kubectl` while the inherited profile or context is PROD.
 When it asks, that's expected: say what the command will do and on which account. Its notes
-(`work-toolkit guard: ...`) also warn when a session is about to run out.
+(`bluetools guard: ...`) also warn when a session is about to run out.
 
 ## Which GitHub account and Claude profile (hat)
 
