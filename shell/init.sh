@@ -25,4 +25,5 @@ fi
 
 . "$_bluetools_shell/okcli.sh"
 . "$_bluetools_shell/kx.sh"
+. "$_bluetools_shell/twin.sh"
 unset _bluetools_shell

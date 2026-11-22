@@ -3,7 +3,8 @@
 # apt_install, and the release helpers get_tool, gh_tool, tool_state, drop_tool (docs/LAYERS.md).
 
 bluetools_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPONENTS+=(okta-aws-cli aws-cli direnv kubectl eks-clusters)
+COMPONENTS+=(okta-aws-cli aws-cli direnv kubectl eks-clusters twingate)
+GROUP_ABOUT[Cloud]="What okcli, kx and twin run on: Okta sign-in for AWS, the aws command, kubectl, your EKS clusters, Twingate."
 
 # ------------------------------------------------------------- okcli ---
 # okta-aws-cli and the AWS CLI (okcli), direnv (okcli pin): the newest release for this CPU,
@@ -121,6 +122,34 @@ install_eks_clusters() {
 uninstall_eks_clusters() {
   ok "your clusters stay in ~/.kube/config (kx rm <context> removes one); the skip list stays in ${kx_ignore_file/#$HOME/\~}"
 }
+
+# -------------------------------------------------------------- twin ---
+# Twingate's own installer: adds its apt source and installs the client (sudo).
+group_twingate() { echo Cloud; }
+requires_twingate() { echo apt; }
+label_twingate() { echo "Twingate"; }
+title_twingate() { echo "The Twingate client, which twin switches on and off"; }
+detail_twingate() { echo "Twingate's installer (binaries.twingate.com, adds its apt source; sudo); then sudo twingate setup, once"; }
+state_twingate() { tool_state twingate; }
+doctor_twingate() {
+  if [[ "$(twingate status -d 2>/dev/null | head -n1)" == online ]]; then echo "✓ connected"
+  else echo "! Twingate isn't connected — open the Twingate app"; fi
+}
+install_twingate() {
+  type -P twingate >/dev/null && { ok "twingate is already installed"; return; }
+  ask "Install the Twingate client? (Twingate's installer adds its apt source; sudo may ask for your password)" || { skip; return; }
+  dry && return
+  local tmp; tmp=$(mktemp)
+  if ! curl -fsSL --retry 2 -o "$tmp" https://binaries.twingate.com/client/linux/install.sh 2>>"$log_file"; then
+    rm -f "$tmp"; fail "couldn't download Twingate's installer (offline?)"; return
+  fi
+  say "      ${D}sudo may ask for your password${R}"
+  if as_root bash "$tmp" >>"$log_file" 2>&1 && type -P twingate >/dev/null; then
+    ok "installed"; say "      ${D}Then, once: sudo twingate setup (it asks for your network's name)${R}"
+  else fail "not installed (see $log_file)"; fi
+  rm -f "$tmp"
+}
+uninstall_twingate() { apt_drop twingate Twingate; }
 
 # ------------------------------------------------------- Bluetooth audio ---
 btl="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
