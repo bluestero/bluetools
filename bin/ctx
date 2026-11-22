@@ -95,8 +95,8 @@ pin=""
 
 # hat: the folder's GitHub account (does git's email match it, is gh signed in as
 # it) and Claude profile. gh_state: ok, other (signed in, not the active one), none.
-# shellcheck source=../../../lib/hat.sh
-. "$ROOT/lib/hat.sh"
+# shellcheck source=../lib/hat.sh
+. "$(dirname "$SELF")/../lib/hat.sh"
 here=$(realpath -m .)
 IFS=$'\t' read -r gh_acct gh_from < <(hat_github_get "$here")
 [[ ${gh_acct:-} == *@* ]] && gh_acct=""   # a repo's own email, no account behind it

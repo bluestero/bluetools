@@ -3,7 +3,7 @@
 # apt_install, and the release helpers get_tool, gh_tool, tool_state, drop_tool (docs/LAYERS.md).
 
 bluetools_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPONENTS+=(okta-aws-cli aws-cli direnv kubectl eks-clusters twingate)
+COMPONENTS+=(okta-aws-cli aws-cli direnv kubectl eks-clusters twingate gh clipboard)
 GROUP_ABOUT[Cloud]="What okcli, kx and twin run on: Okta sign-in for AWS, the aws command, kubectl, your EKS clusters, Twingate."
 
 # ------------------------------------------------------------- okcli ---
@@ -150,6 +150,42 @@ install_twingate() {
   rm -f "$tmp"
 }
 uninstall_twingate() { apt_drop twingate Twingate; }
+
+# --------------------------------------------------------------- hat ---
+# gh, from GitHub's release (the tar.gz holds gh_<v>_linux_<arch>/bin/gh)
+group_gh() { echo Apps; }
+requires_gh() { echo linux; }
+label_gh() { echo "GitHub CLI (gh)"; }
+title_gh() { echo "The gh command: hat signs it in per GitHub account, for PRs and the API"; }
+detail_gh() { echo "latest gh from GitHub (sha256-checked) in ~/.local/bin"; }
+state_gh() { tool_state gh; }
+install_gh() { get_tool gh "hat signs it in to your GitHub accounts" "about 15 MB" fetch_gh; }
+fetch_gh() {
+  local tmp d rc=1
+  gh_latest cli/cli "gh_{v}_linux_$(dl_arch).tar.gz" || { warn "couldn't find the latest gh (offline?)"; return 1; }
+  tmp=$(mktemp -d) d="gh_${GH_VER}_linux_$(dl_arch)"
+  fetch_checked "$GH_URL" "$GH_SHA" "$tmp/dl" && tar xzf "$tmp/dl" -C "$tmp" "$d/bin/gh" 2>>"$log_file" &&
+    mkdir -p "$HOME/.local/bin" && install -m 755 "$tmp/$d/bin/gh" "$HOME/.local/bin/gh" && rc=0
+  rm -rf "$tmp"
+  (( rc )) || logf "gh $GH_VER installed to ~/.local/bin"
+  return "$rc"
+}
+uninstall_gh() { drop_tool gh; }
+
+# wl-copy on Wayland, xclip on X11
+clip_pkg() { [[ ${XDG_SESSION_TYPE:-} == x11 ]] && echo xclip || echo wl-clipboard; }
+group_clipboard() { echo Apps; }
+requires_clipboard() { echo apt; }
+label_clipboard() { echo "Clipboard tool"; }
+title_clipboard() { echo "wl-copy (xclip on X11), so hat can copy keys and sign-in codes for you"; }
+detail_clipboard() { echo "$(clip_pkg) (apt) if neither wl-copy nor xclip is installed"; }
+state_clipboard() { NOTE=""; if type -P wl-copy >/dev/null || type -P xclip >/dev/null; then STATE=installed; else STATE=missing; fi; }
+install_clipboard() {
+  type -P wl-copy >/dev/null || type -P xclip >/dev/null && { ok "already installed"; return; }
+  ask "Install $(clip_pkg)? (apt, needs sudo)" || { skip; return; }
+  dry || { apt_install "$(clip_pkg)" && ok "installed" || fail "apt failed (see $log_file)"; }
+}
+uninstall_clipboard() { apt_drop "$(clip_pkg)" "$(clip_pkg)"; }
 
 # ------------------------------------------------------- Bluetooth audio ---
 btl="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
