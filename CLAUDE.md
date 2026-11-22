@@ -17,7 +17,8 @@ The full contract is unikit's `docs/LAYERS.md`; read it before changing the shap
 - `claude/skills/<skill>/SKILL.md`: Claude skills, next to the command they document.
 - `docs/<tool>.md`: a tool's own page.
 - `tests/cases/<tool>.py`: its tests, run by unikit's runner (`<unikit>/tests/run.sh <tool>`);
-  the shared fixtures (`Sandbox`, `Term`, `worlds`) are unikit's `tests/lib`.
+  unikit's `tests/lib` (`Sandbox`, `Term`, `budget`) and this layer's `tests/lib/bluetools_worlds.py`
+  are on the path.
 - A command finds unikit's `lib/` by walking up from itself to the folder with `lib/ui.sh`.
 
 ## Rules

@@ -2,7 +2,7 @@
 import os
 
 from term import Term
-from worlds import WS
+from bluetools_worlds import WS
 
 
 def start(sb):

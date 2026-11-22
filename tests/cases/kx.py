@@ -1,7 +1,7 @@
 """kx: the context picker, kx sync's checklist and a resource list (kx pods), all on a
 scratch kubeconfig and a fake kubectl / aws (tests/lib/fixture.py). Questions open in the list."""
 from term import Term
-from worlds import KX, current_context, kube
+from bluetools_worlds import KX, current_context, kube
 
 
 def start(sb):

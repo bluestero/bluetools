@@ -2,7 +2,7 @@
 import os
 
 from term import Term
-from worlds import HAT
+from bluetools_worlds import HAT
 
 GH = r'''
 H="$HOME/.config/gh/hosts.yml"

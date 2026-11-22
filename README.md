@@ -45,4 +45,6 @@ unikit shows what of it runs on your machine and asks first; then it offers to s
 
 ## Tests
 
-`tests/cases/<tool>.py`, run by unikit's runner: `<unikit>/tests/run.sh okcli`.
+`tests/cases/<tool>.py`, run by unikit's runner: `<unikit>/tests/run.sh okcli`. Their shared sandboxes
+(AWS profiles, clusters) are in `tests/lib/bluetools_worlds.py`; `speed_tools` times the pickers and
+commands against unikit's budgets (run by name only).

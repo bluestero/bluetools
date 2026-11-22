@@ -4,7 +4,7 @@ import os
 import subprocess
 
 from fixture import REPO
-from worlds import kube
+from bluetools_worlds import kube
 
 GUARD = os.path.join(REPO, "layers/bluetools/tk/__guard")
 
