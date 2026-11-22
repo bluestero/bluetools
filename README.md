@@ -23,6 +23,8 @@ unikit shows what of it runs on your machine and asks first; then it offers to s
 | `hat` | a folder's Claude profile, GitHub account and AWS profile; `gh` runs as the folder's account |
 | `twin` | Twingate exit nodes: pick one, switch, off |
 | `ws` | open workspaces (repos) in Zed or VS Code, focus open ones; your list plus layers' shared `workspaces` lists |
+| `tk __guard` | Claude Code's PROD guard (`tk/__guard`, run by the claude-guard part's hook) |
+| `work-toolkit` skill | teaches Claude Code these tools: which account and cluster, what to ask first (`claude/skills/`) |
 | `okta-aws-cli` part | okta-aws-cli from GitHub in `~/.local/bin`: okcli signs in with it |
 | `aws-cli` part | AWS CLI v2 in `~/.local/aws-cli`: `okcli whoami`, kx's EKS sign-in |
 | `direnv` part | direnv in `~/.local/bin`: `okcli pin` switches the profile per folder |
@@ -34,6 +36,8 @@ unikit shows what of it runs on your machine and asks first; then it offers to s
 | `zed`, `vscode` parts | the editors ws opens workspaces in |
 | `bluetools-window-calls` part | the Window Calls GNOME extension, so ws can close and focus windows (shared with another layer's part for it, if any) |
 | `repos` part | clones the repos your workspace list names |
+| `claude-hook` part | every Claude Code session starts with `ctx plain` (a SessionStart hook in each profile) |
+| `claude-guard` part | Claude asks you before a command that changes PROD (a PreToolUse hook: `tk __guard`) |
 | `bt-audio` part | Bluetooth earbuds keep music mode after reconnecting, and switch to Handsfree while a call has the mic (PipeWire + WirePlumber 0.4, `audio/`) |
 | `bt-notify` part | a short notification when earbuds switch mode (`audio/bin/k-bt-notify`, a systemd user service) |
 

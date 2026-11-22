@@ -3,7 +3,7 @@
 # apt_install, and the release helpers get_tool, gh_tool, tool_state, drop_tool (docs/LAYERS.md).
 
 bluetools_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPONENTS+=(okta-aws-cli aws-cli direnv kubectl eks-clusters twingate gh clipboard zed vscode bluetools-window-calls repos)
+COMPONENTS+=(okta-aws-cli aws-cli direnv kubectl eks-clusters twingate gh clipboard zed vscode bluetools-window-calls repos claude-hook claude-guard)
 GROUP_ABOUT[Apps]="Programs the commands use: gh for hat's GitHub sign-ins, a clipboard tool, Zed or VS Code and Window Calls for ws."
 GROUP_ABOUT[Workspaces]="Your repos, cloned from your workspace list (ws edit)."
 GROUP_ABOUT[Cloud]="What okcli, kx and twin run on: Okta sign-in for AWS, the aws command, kubectl, your EKS clusters, Twingate."
@@ -419,6 +419,73 @@ uninstall_repos() {
     dry || { for d in "${safe[@]}"; do rm -rf -- "$d"; done; ok "$n clone(s) deleted"; }
   else ok "the clones stay"; fi
 }
+
+# ------------------------------------------------------------ claude ---
+# Claude Code's start hook (ctx plain) and PROD guard, in every Claude profile (unikit's
+# claude_each / claude_state). The work-toolkit skill is in claude/skills/: unikit's
+# claude-skill part links it.
+# The hook is the one SessionStart entry whose command is $ch_cmd (the guard: the one
+# PreToolUse entry for Bash whose command is $cgd_cmd). settings.json is edited as
+# JSON (python), everything else in it is kept as is.
+ch_settings="$claude_dir/settings.json"
+ch_cmd="ctx plain 2>/dev/null || true"
+ch_json() {   # ch_json has|add|remove [command event matcher]  (add/remove print the new settings)
+  python3 -I - "$ch_settings" "${2:-$ch_cmd}" "$1" "${3:-SessionStart}" "${4:-}" <<'PY'
+import json, os, sys
+path, cmd, op, event, matcher = sys.argv[1:]
+d = json.load(open(path)) if os.path.exists(path) and os.path.getsize(path) else {}
+ss = d.setdefault("hooks", {}).setdefault(event, [])
+mine = lambda g: any(h.get("command") == cmd for h in g.get("hooks", []))
+if op == "has":
+    sys.exit(0 if any(mine(g) for g in ss) else 1)
+ss[:] = [g for g in ss if not mine(g)]
+if op == "add":
+    ss.append({**({"matcher": matcher} if matcher else {}), "hooks": [{"type": "command", "command": cmd, "timeout": 10}]})
+if not ss: del d["hooks"][event]
+if not d["hooks"]: del d["hooks"]
+print(json.dumps(d, indent=2))
+PY
+}
+ch_write() {   # ch_write add|remove [command event matcher]
+  local tmp b; tmp=$(mktemp)
+  ch_json "$@" >"$tmp" || { rm -f "$tmp"; fail "couldn't read ${ch_settings/#$HOME/\~} (not valid JSON?)"; return 1; }
+  mkdir -p "$claude_dir"; b=$(backup "$ch_settings")
+  cat "$tmp" >"$ch_settings"; rm -f "$tmp"
+  logf "  $1 ${3:-SessionStart} hook in $ch_settings${b:+ (backup: $b)}"
+  ok "done${b:+ (backup: ${b/#$HOME/\~})}"
+}
+ch_has() { ch_json has 2>/dev/null; }
+group_claude_hook() { echo "Claude Code"; }
+label_claude_hook() { echo "Claude start hook"; }
+title_claude_hook() { echo "Every Claude Code session starts knowing your AWS profile, pin and cluster"; }
+detail_claude_hook() { echo "a SessionStart hook in each Claude profile's settings.json that runs: $ch_cmd"; }
+state_claude_hook() { claude_state ch_has; }
+ch_install() { ch_has && return
+  ask "Add the start hook to ${ch_settings/#$HOME/\~}? (runs ${C}ctx plain${R} when a session opens)" && { dry || ch_write add; } || skip; }
+install_claude_hook() { claude_each ch_install; }
+ch_uninstall() { ch_has || return 0; ch_write remove; }
+uninstall_claude_hook() { claude_each ch_uninstall; }
+
+# The guard (tk/__guard, run as `tk __guard`): before each Bash command, has you approve
+# one that changes something on PROD or leans on an inherited PROD profile/context.
+# With no tk to run, Claude Code lets every command through, so the part says so.
+cgd_cmd="tk __guard"
+cgd_json() { ch_json "$1" "$cgd_cmd" PreToolUse Bash; }
+cgd_has() { cgd_json has 2>/dev/null; }
+group_claude_guard() { echo "Claude Code"; }
+label_claude_guard() { echo "Claude PROD guard"; }
+title_claude_guard() { echo "Claude Code asks you first before changing anything on PROD"; }
+detail_claude_guard() { echo "a PreToolUse hook for Bash in each Claude profile's settings.json that runs: $cgd_cmd"; }
+state_claude_guard() { claude_state cgd_has
+  if [[ $STATE == installed || $STATE == partial ]] && ! type -P tk >/dev/null; then
+    STATE=partial NOTE="it can't run: the tk command isn't on PATH (set up commands)${NOTE:+; $NOTE}"
+  fi; }
+cgd_install() { cgd_has && return
+  ask "Add the PROD guard to ${ch_settings/#$HOME/\~}? (Claude asks you before a command that changes PROD)" && { dry || ch_write add "$cgd_cmd" PreToolUse Bash; } || skip; }
+install_claude_guard() { claude_each cgd_install
+  type -P tk >/dev/null || warn "the guard runs the tk command, which isn't on PATH, so it checks nothing yet: set up ${B}commands${R}"; }
+cgd_uninstall() { cgd_has || return 0; ch_write remove "$cgd_cmd" PreToolUse Bash; }
+uninstall_claude_guard() { claude_each cgd_uninstall; }
 
 # ------------------------------------------------------- Bluetooth audio ---
 btl="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

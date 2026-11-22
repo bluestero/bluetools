@@ -10,7 +10,7 @@ The full contract is unikit's `docs/LAYERS.md`; read it before changing the shap
 - `shell/init.sh`: sourced by every bash and zsh. Settings and aliases only; fast and quiet.
 - `components.sh`: installer parts (`COMPONENTS+=(…)` plus `label_ title_ detail_ state_
   install_ uninstall_`, and `touches_` for what a part changes). A new part's name starts with
-  the layer's name; the ones that came from unikit (okta-aws-cli, aws-cli, direnv, kubectl, eks-clusters, twingate, gh, clipboard, zed, vscode, repos) keep theirs.
+  the layer's name; the ones that came from unikit (okta-aws-cli, aws-cli, direnv, kubectl, eks-clusters, twingate, gh, clipboard, zed, vscode, repos, claude-hook, claude-guard) keep theirs.
 - `tools`: `name|group|what it does|program it needs[|kit]`, one per command.
 - `kit`: `tk` (what you work with) or `fk` (how it looks): where its parts go.
 - `requires`: other layers it needs. Needing only unikit is the default; keep it that way if you can.
