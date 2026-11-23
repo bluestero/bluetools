@@ -6,7 +6,7 @@ bluetools_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPONENTS+=(okta-aws-cli aws-cli direnv kubectl eks-clusters twingate gh clipboard zed vscode bluetools-window-calls repos claude-hook claude-guard)
 GROUP_ABOUT[Apps]="Programs the commands use: gh for hat's GitHub sign-ins, a clipboard tool, Zed or VS Code and Window Calls for ws."
 GROUP_ABOUT[Workspaces]="Your repos, cloned from your workspace list (ws edit)."
-GROUP_ABOUT[Cloud]="What okcli, kx and twin run on: Okta sign-in for AWS, the aws command, kubectl, your EKS clusters, Twingate."
+GROUP_ABOUT[Cloud]="What okcli, kx and twin run on: Okta sign-in for AWS, the aws command, direnv for folder pins, kubectl, your EKS clusters, Twingate."
 
 # ------------------------------------------------------------- okcli ---
 # okta-aws-cli and the AWS CLI (okcli), direnv (okcli pin): the newest release for this CPU,
@@ -56,6 +56,7 @@ uninstall_aws_cli() {
   else drop_tool aws; fi
 }
 
+group_direnv() { echo Cloud; }
 requires_direnv() { echo linux; }
 label_direnv() { echo "direnv"; }
 title_direnv() { echo "direnv, so okcli pin switches the AWS profile when you cd into a folder"; }
@@ -491,6 +492,7 @@ uninstall_claude_guard() { claude_each cgd_uninstall; }
 btl="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPONENTS+=(bt-audio bt-notify)
 group_bt_audio() { echo "Desktop (GNOME)"; }; group_bt_notify() { echo "Desktop (GNOME)"; }
+GROUP_ABOUT["Desktop (GNOME)"]="Bluetooth earbuds: music mode that survives reconnects, Handsfree during calls, a note when they switch."
 requires_bt_audio() { echo linux; }; requires_bt_notify() { echo linux; }
 
 # ------------------------------------------------------------ bt-audio ---
