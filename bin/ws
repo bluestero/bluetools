@@ -11,8 +11,8 @@ SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 ROOT=$(cd "$(dirname "$SELF")/.." && pwd); until [[ -f $ROOT/lib/ui.sh || $ROOT == / ]]; do ROOT=$(dirname "$ROOT"); done
 # shellcheck source=../../../lib/ui.sh
 . "$ROOT/lib/ui.sh"
-# shellcheck source=../lib/workspaces.sh
-. "$(dirname "$SELF")/../lib/workspaces.sh"
+# shellcheck source=../../../lib/workspaces.sh
+. "$ROOT/lib/workspaces.sh"
 # shellcheck source=../lib/hat.sh
 . "$(dirname "$SELF")/../lib/hat.sh"
 # shellcheck source=../../../lib/inplace.sh

@@ -302,45 +302,14 @@ PY
 
 # --------------------------------------------------------------- repos ---
 # Clones what your workspace list names (lines with a GitHub repo) that isn't there
-# yet: the layers' shared lists (layers/*/workspaces) plus your own (~/.config/ws/workspaces).
-# shellcheck source=lib/workspaces.sh
-. "$bluetools_root/lib/workspaces.sh"
+# yet: the layers' shared lists (layers/*/workspaces) plus your own (~/.config/ws/workspaces),
+# through unikit's lib/workspaces.sh.
 repos_todo() {   # <path><TAB><owner/repo> for each listed repo not cloned yet
   local p r
   while IFS=$'\t' read -r p r; do
     [[ -n $r && ! -e $p/.git ]] && printf '%s\t%s\n' "$p" "$r"
   done < <(ws_list)
 }
-# ask_ws_folder NAME "<what goes there>": when the folder a workspace variable
-# names ($ACME, ...) doesn't exist yet, show where it would go and let you keep
-# that or type another (~/..., /..., or a path inside your home folder), then
-# create it and save it in your list. 0 = the folder is there now.
-ask_ws_folder() {
-  local name=$1 what=$2 cur dir
-  cur=$(ws_var "$name")
-  [[ -n $cur && -d $cur ]] && return 0
-  [[ -n $cur ]] && cur=${cur/#$HOME/\~} || cur="~/$name"
-  while :; do
-    ask_text "Folder for $what (\$$name)? Enter keeps it; type another to change it" "$cur" || { skip; return 1; }
-    dir=$ANSWER
-    [[ $dir == "~" || $dir == "~/"* ]] && dir="$HOME${dir:1}"
-    [[ $dir == /* ]] || dir="$HOME/$dir"
-    dir=$(realpath -m -- "$dir")
-    if [[ -z $ANSWER || $ANSWER == *$'\t'* ]]; then warn "that isn't a folder path"
-    elif [[ $dir == / || $dir == "$HOME" ]]; then warn "pick a folder of its own, not ${dir/#$HOME/\~}"
-    elif [[ -e $dir && ! -d $dir ]]; then warn "${dir/#$HOME/\~} is a file, not a folder"
-    elif dry; then say "      ${D}would create ${dir/#$HOME/\~} and save $name there in your list${R}"; return 0
-    elif ! mkdir -p -- "$dir" 2>/dev/null; then warn "can't create ${dir/#$HOME/\~} (no permission?)"
-    else
-      ws_set_var "$name" "$dir"
-      ok "$name → ${dir/#$HOME/\~} ${D}(saved in $(ws_list_file | sed "s|^$HOME|~|"); ws edit changes it)${R}"
-      return 0
-    fi
-    [[ $mode == yes ]] && return 1   # --yes can't ask again
-    cur=$ANSWER
-  done
-}
-
 group_repos() { echo Workspaces; }
 label_repos() { echo "Workspace repos"; }
 title_repos() { echo "Clone the repos in your workspace list (ws edit) that aren't there yet"; }
