@@ -531,7 +531,7 @@ p_gh_install_job() {   # account (background)
   if command -v gh >/dev/null; then
     p_todo "$(ip_fz change-footer "✓ gh installed · gh sign-in as $1: asking GitHub for a code…")"
     p_gh_job "$1"
-  else rm -f "$UI_TOAST_DIR/id"; p_todo "$(ui_toast "✗ gh didn't install: see ~/.local/state/work-toolkit/setup.log")"; fi
+  else rm -f "$UI_TOAST_DIR/id"; p_todo "$(ui_toast "✗ gh didn't install: see ~/.local/state/unikit/setup.log")"; fi
 }
 p_gh_job() {   # account (background)
   local a=$1 prev users log=$IP/gh-login.log code pid i r copied=""

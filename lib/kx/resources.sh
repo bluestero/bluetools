@@ -504,7 +504,7 @@ short_name() {
 port_busy() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
 
 # kitty can open the port-forward in a new tab, next to this one. Needs the
-# "kx" remote control password in kitty.conf (work-toolkit's kitty.conf has it).
+# "kx" remote control password in kitty.conf (bluefeels' kitty.conf has it).
 # Run a kx command in a new kitty tab, with this shell's cluster and AWS profile.
 kitty_tab() {   # title keep-focus|focus kx-args...
   [[ -n "${KITTY_WINDOW_ID:-}" && -n "${KITTY_LISTEN_ON:-}" ]] || return 1
