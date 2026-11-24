@@ -3,8 +3,9 @@
 # claude-guard part of the installer adds it). Reads the tool call (JSON on stdin)
 # and has the user approve a command first when it:
 #   - changes something on a PROD AWS profile or Kubernetes context it names, or
-#   - runs aws / kubectl / helm / terraform without naming a target while the
-#     inherited profile or context is PROD.
+#   - changes something with aws / kubectl / helm / terraform without naming a
+#     target while the inherited profile or context is PROD.
+# Read-only commands never ask, on PROD or not.
 # It notes a session with under 15 minutes left (or expired). Anything else: no
 # output, so Claude Code's normal permission flow is unchanged. It reads the
 # command's words, so it's a safety net for the usual forms, not a full parser.
@@ -83,11 +84,11 @@ done
 # no target named: the one inherited from the terminal Claude started in
 if (( aws_tool && ${#profiles[@]} == 0 && ! pinned )) && [[ -n ${AWS_PROFILE:-} ]]; then
   profiles+=("$AWS_PROFILE")
-  prod_profile "$AWS_PROFILE" && ask+=("it uses the inherited AWS profile $(describe "$AWS_PROFILE"), which is PROD, without naming one (okcli exec <profile> -- ...)")
+  (( changes )) && prod_profile "$AWS_PROFILE" && ask+=("it uses the inherited AWS profile $(describe "$AWS_PROFILE"), which is PROD, and changes something without naming one (okcli exec <profile> -- ...)")
 fi
-if (( kube_tool && ${#contexts[@]} == 0 )); then
+if (( kube_tool && changes && ${#contexts[@]} == 0 )); then
   k=$(kubectl config current-context 2>/dev/null)
-  [[ -n $k ]] && is_prod "$k" && ask+=("it uses the inherited Kubernetes context $k, which is PROD, without naming one (kx exec <context> -- ...)")
+  [[ -n $k ]] && is_prod "$k" && ask+=("it uses the inherited Kubernetes context $k, which is PROD, and changes something without naming one (kx exec <context> -- ...)")
 fi
 
 # sessions about to run out

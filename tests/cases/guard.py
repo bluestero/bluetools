@@ -1,4 +1,4 @@
-"""tk __guard, Claude Code's PreToolUse hook: asks only for PROD changes and inherited PROD targets."""
+"""tk __guard, Claude Code's PreToolUse hook: asks only for PROD changes, named or inherited."""
 import json
 import os
 import subprocess
@@ -37,10 +37,12 @@ def test_prod_changes_ask_reads_and_dev_dont(sb):
         assert not asks(sb, c), c
 
 
-def test_bare_aws_asks_only_when_the_inherited_profile_is_prod(sb):
+def test_bare_aws_asks_only_for_changes_on_an_inherited_prod_profile(sb):
     kube(sb)
-    assert asks(sb, "aws s3 ls", AWS_PROFILE="shop-prod")
-    assert not asks(sb, "aws s3 ls", AWS_PROFILE="shop-dev")
+    assert asks(sb, "aws s3 rm s3://b/k", AWS_PROFILE="shop-prod")
+    assert not asks(sb, "aws s3 ls", AWS_PROFILE="shop-prod")
+    assert not asks(sb, "aws dynamodb scan --table-name t", AWS_PROFILE="shop-prod")
+    assert not asks(sb, "aws s3 rm s3://b/k", AWS_PROFILE="shop-dev")
 
 
 def test_expired_session_is_a_note_not_a_question(sb):

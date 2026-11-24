@@ -40,7 +40,8 @@ To look around, pick the account's read-only profile (`*-ro`, `*-read`); an admi
 role only when the job needs it.
 
 A guard hook runs before your Bash commands: it has the user approve a command that changes
-something on PROD, or a bare `aws`/`kubectl` while the inherited profile or context is PROD.
+something on PROD, named or inherited (a bare `aws`/`kubectl` on a PROD terminal). Read-only
+commands pass without asking, PROD included.
 When it asks, that's expected: say what the command will do and on which account. Its notes
 (`bluetools guard: ...`) also warn when a session is about to run out.
 
