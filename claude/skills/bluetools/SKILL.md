@@ -70,6 +70,11 @@ when the user asks.
 
 ## Ask the user first
 
+- **Any change in AWS or Kubernetes, on any account or cluster, dev included**: deploys,
+  config, env vars, tags, IAM, S3 writes, `kubectl` apply/patch/scale/edit/delete. Reading
+  (describe, get, list, logs, ECR pulls) needs no asking. Say what you'll change and where,
+  then wait; a yes covers that one change, not the next. Don't change a cluster just to test
+  something (scaling a deployment to prove a point): ask, or leave that step to the user.
 - **Anything that changes or deletes on a PROD profile or context.** Read-only on prod is fine.
 - `okcli pin` / `okcli unpin`: writes the repo's `.envrc`.
 - `okcli default`, `kx default`: changes what *all* new terminals start on. Never do this on your own.

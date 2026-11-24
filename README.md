@@ -25,6 +25,7 @@ unikit shows what of it runs on your machine and asks first; then it offers to s
 | `ctx` | check what this terminal points at |
 | `tk __guard` | Claude Code's PROD guard (`tk/__guard`, run by the claude-guard part's hook) |
 | `bluetools` skill | teaches Claude Code these tools: which account and cluster, what to ask first (`claude/skills/`) |
+| `working-style` skill | how Claude writes what you'll send on (Slack-ready messages); optional, untick it in `uk skills` |
 
 | Part (`tk install`) | What it sets up |
 |---|---|
