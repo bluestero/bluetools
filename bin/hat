@@ -7,11 +7,11 @@
 set -uo pipefail
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 # unikit's lib/: walk up from here (the layer sits in <unikit>/layers/bluetools)
-ROOT=$(cd "$(dirname "$SELF")/.." && pwd); until [[ -f $ROOT/lib/ui.sh || $ROOT == / ]]; do ROOT=$(dirname "$ROOT"); done
+ROOT=$(cd "${SELF%/*}/.." && pwd); until [[ -f $ROOT/lib/ui.sh || -z $ROOT ]]; do ROOT=${ROOT%/*}; done
 # shellcheck source=../../../lib/ui.sh
 . "$ROOT/lib/ui.sh"
 # shellcheck source=../lib/hat.sh
-. "$(dirname "$SELF")/../lib/hat.sh"
+. "${SELF%/*}/../lib/hat.sh"
 # shellcheck source=../../../lib/inplace.sh
 . "$ROOT/lib/inplace.sh"
 S=$'\x1f'
@@ -117,7 +117,7 @@ legend() { printf '%s' "${C_DIM}↑ from a parent folder · ⇄ set in the repo 
 head_row() { printf '%s\n' "  ${C_BOLD}FOLDER${C_RESET}$S${C_BOLD}CLAUDE${C_RESET}$S${C_BOLD}GITHUB${C_RESET}$S${C_BOLD}AWS${C_RESET}"; }
 # <abs path><TAB>table row, the current folder first (● when it isn't listed)
 folder_rows() {
-  local d here list m; here=$(abs "$PWD"); list=$(folders)
+  local d here list m _HAT_RULES; hat_rules_keep; here=$(abs "$PWD"); list=$(folders)
   grep -Fxq "$here" <<<"$list" || [[ $here == "$HOME" ]] ||
     printf '%s\t%s\n' "$here" "$(ui_mark_here) $(tilde "$here")$S$(hat_cells "$here")"
   while IFS= read -r d; do

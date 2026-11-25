@@ -9,7 +9,7 @@
 set -uo pipefail
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 # unikit's lib/: walk up from here (the layer sits in <unikit>/layers/bluetools)
-ROOT=$(cd "$(dirname "$SELF")/.." && pwd); until [[ -f $ROOT/lib/ui.sh || $ROOT == / ]]; do ROOT=$(dirname "$ROOT"); done
+ROOT=$(cd "${SELF%/*}/.." && pwd); until [[ -f $ROOT/lib/ui.sh || -z $ROOT ]]; do ROOT=${ROOT%/*}; done
 # shellcheck source=../../../lib/ui.sh
 . "$ROOT/lib/ui.sh"
 [[ -t 1 ]] || ui_no_color
@@ -66,26 +66,29 @@ session() {
   exp=$(awk -v p="$1" '$1 == p { print $2 }' <<<"$expiries")
   if [[ -n "$exp" ]]; then
     time_left $(( exp - $(date +%s) ))
+  elif [[ $1 == "$aws_p" ]]; then printf '%s' "$aws_status"
   else okcli __status "$1" 2>/dev/null; fi
 }
 row() { local IFS=$S; printf '%s\n' "$*"; }
 
 # ---------------------------------------------------------------- gather ---
 aws_p="${AWS_PROFILE:-}" aws_acct="" aws_role="" aws_left="" aws_def="" expiries=""
-if has okcli; then
-  expiries=$(okcli __expiries 2>/dev/null)
-  if [[ -n "$aws_p" ]]; then
-    IFS=$'\t' read -r _ _ aws_acct aws_role _ < <(okcli __profiles 2>/dev/null | awk -F'\t' -v p="$aws_p" '$1 == p')
-    aws_left=$(session "$aws_p")
-  fi
-  aws_def=$(okcli default 2>/dev/null)
+aws_status=""   # okcli's words for $aws_p, when it has no expiry
+if has okcli; then   # one okcli run (each takes ~50 ms to start)
+  while IFS=$'\t' read -r _k _1 _2 _3 _4 _; do
+    case $_k in
+      D) aws_def=$_1 ;;
+      E) expiries+="$_1 $_2"$'\n' ;;
+      P) aws_acct=$_3 aws_role=$_4 ;;
+      S) aws_status=$_1 ;;
+    esac
+  done < <(okcli __ctx "$aws_p" 2>/dev/null)
+  [[ -n "$aws_p" ]] && aws_left=$(session "$aws_p")
 fi
 
 k_cur="" k_ns="" k_via="" k_def="" k_local=0
 if has kubectl && has kx; then
-  k_cur=$(kubectl config current-context 2>/dev/null)
-  [[ -n "$k_cur" ]] && IFS=$'\t' read -r _ k_ns k_via < <(kx __current 2>/dev/null)
-  k_def=$(kx default 2>/dev/null)
+  IFS=$'\t' read -r k_cur k_ns k_via k_def < <(kx __current 2>/dev/null)
   [[ "${KUBECONFIG:-}" == "${KX_SHELL_FILE:-//}"* ]] && k_local=1
 fi
 
@@ -96,7 +99,7 @@ pin=""
 # hat: the folder's GitHub account (does git's email match it, is gh signed in as
 # it) and Claude profile. gh_state: ok, other (signed in, not the active one), none.
 # shellcheck source=../lib/hat.sh
-. "$(dirname "$SELF")/../lib/hat.sh"
+. "${SELF%/*}/../lib/hat.sh"
 here=$(realpath -m .)
 IFS=$'\t' read -r gh_acct gh_from < <(hat_github_get "$here")
 [[ ${gh_acct:-} == *@* ]] && gh_acct=""   # a repo's own email, no account behind it

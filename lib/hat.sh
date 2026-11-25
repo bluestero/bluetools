@@ -62,17 +62,21 @@ hat_envrc_get() {
       grep -q '^[[:space:]]*source_up' "$d/.envrc" || return 0
     fi
     [[ $d == / || -z $d ]] && return 0
-    d=$(dirname "$d")
+    d=${d%/*}; d=${d:-/}
   done
 }
 
-# ~/.gitconfig's folder rules that hat made: <folder><TAB><account>
-hat_git_rules() {
+# ~/.gitconfig's folder rules that hat made: <folder><TAB><account>. A table of many folders
+# reads them once: `local _HAT_RULES; hat_rules_keep` in its function (they're then used
+# until it returns).
+hat_git_rules() { if [[ -n ${_HAT_RULES+x} ]]; then printf '%s' "$_HAT_RULES"; else _hat_git_rules; fi; }
+hat_rules_keep() { _HAT_RULES=$(_hat_git_rules); [[ -z $_HAT_RULES ]] || _HAT_RULES+=$'\n'; }
+_hat_git_rules() {
   git config --global --get-regexp '^includeif\.gitdir:.*\.path$' 2>/dev/null |
     while read -r k v; do
       [[ $v == */hat/github/*.gitconfig ]] || continue
       k=${k#includeif.gitdir:}; k=${k%.path}; k=${k%/}
-      printf '%s\t%s\n' "${k/#\~/$HOME}" "$(basename "$v" .gitconfig)"
+      v=${v##*/}; printf '%s\t%s\n' "${k/#\~/$HOME}" "${v%.gitconfig}"
     done
 }
 
@@ -95,11 +99,11 @@ hat_github_get() {
 
 # hat_get <dir>: claude<TAB>from<TAB>github<TAB>from<TAB>aws<TAB>from
 # ("from" is the folder it's set in, or "remote"; empty value = the default)
-hat_get() {
-  local d c g a
-  d=$(realpath -m -- "$1")
+hat_get() { _hat_get "$(realpath -m -- "$1")"; }
+_hat_get() {   # <dir>, already a real path
+  local d=$1 c g a v
   c=$(hat_envrc_get "$d" CLAUDE_CONFIG_DIR)
-  [[ -n $c ]] && c="$(basename "${c%%$'\t'*}")"$'\t'"${c#*$'\t'}"
+  [[ -n $c ]] && { v=${c%%$'\t'*}; v=${v%/}; c="${v##*/}"$'\t'"${c#*$'\t'}"; }
   g=$(hat_github_get "$d")
   a=$(hat_envrc_get "$d" AWS_PROFILE)
   printf '%s\t%s\t%s\n' "${c:-$'\t'}" "${g:-$'\t'}" "${a:-$'\t'}"
@@ -111,7 +115,8 @@ hat_cells() {
   local d v f out=() i
   local -a x
   d=$(realpath -m -- "$1")
-  IFS=$'\t' read -r -a x <<<"$(hat_get "$d" | sed 's/\t/\t·/g; s/^/·/')"
+  v=$(_hat_get "$d"); v="·${v//$'\t'/$'\t'·}"   # · keeps the empty cells apart
+  IFS=$'\t' read -r -a x <<<"$v"
   for i in 0 2 4; do
     v=${x[i]#·}; f=${x[i+1]#·}
     if [[ -z $v ]]; then out+=("${C_DIM}–${C_RESET}")

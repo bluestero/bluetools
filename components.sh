@@ -2,7 +2,7 @@
 # helpers are here: ask, ok, skip, warn, fail, dry, linked, link_file, unlink_file, set_block,
 # apt_install, and the release helpers get_tool, gh_tool, tool_state, drop_tool (docs/LAYERS.md).
 
-bluetools_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+bluetools_root="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 COMPONENTS+=(okta-aws-cli aws-cli direnv kubectl eks-clusters twingate gh clipboard zed vscode bluetools-window-calls repos claude-hook claude-guard)
 GROUP_ABOUT[Apps]="Programs the commands use: gh for hat's GitHub sign-ins, a clipboard tool, Zed or VS Code and Window Calls for ws."
 GROUP_ABOUT[Workspaces]="Your repos, cloned from your workspace list (ws edit)."
@@ -458,7 +458,7 @@ cgd_uninstall() { cgd_has || return 0; ch_write remove "$cgd_cmd" PreToolUse Bas
 uninstall_claude_guard() { claude_each cgd_uninstall; }
 
 # ------------------------------------------------------- Bluetooth audio ---
-btl="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+btl="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 COMPONENTS+=(bt-audio bt-notify)
 group_bt_audio() { echo "Desktop (GNOME)"; }; group_bt_notify() { echo "Desktop (GNOME)"; }
 GROUP_ABOUT["Desktop (GNOME)"]="Bluetooth earbuds: music mode that survives reconnects, Handsfree during calls, a note when they switch."

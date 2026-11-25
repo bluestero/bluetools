@@ -7,7 +7,7 @@
 set -uo pipefail
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 # unikit's lib/: walk up from here (the layer sits in <unikit>/layers/bluetools)
-ROOT=$(cd "$(dirname "$SELF")/.." && pwd); until [[ -f $ROOT/lib/ui.sh || $ROOT == / ]]; do ROOT=$(dirname "$ROOT"); done
+ROOT=$(cd "${SELF%/*}/.." && pwd); until [[ -f $ROOT/lib/ui.sh || -z $ROOT ]]; do ROOT=${ROOT%/*}; done
 # shellcheck source=../../../lib/ui.sh
 . "$ROOT/lib/ui.sh"
 

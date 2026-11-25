@@ -9,7 +9,7 @@
 set -uo pipefail
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 # unikit's lib/: walk up from here (the layer sits in <unikit>/layers/bluetools)
-ROOT=$(cd "$(dirname "$SELF")/.." && pwd); until [[ -f $ROOT/lib/ui.sh || $ROOT == / ]]; do ROOT=$(dirname "$ROOT"); done
+ROOT=$(cd "${SELF%/*}/.." && pwd); until [[ -f $ROOT/lib/ui.sh || -z $ROOT ]]; do ROOT=${ROOT%/*}; done
 # shellcheck source=../../../lib/ui.sh
 . "$ROOT/lib/ui.sh"
 # shellcheck source=../../../lib/inplace.sh
@@ -999,6 +999,25 @@ main() {
       while IFS=$'\t' read -r n _ l _ _ _; do is_prod "$n" "$l" && printf '%s\n' "$n"; done < <(profiles_tsv)
       ;;
     __status)        status_text "${1:?}" ;;
+    __ctx)           # for ctx in one run: D<TAB>default, E<TAB>profile<TAB>epoch (__expiries),
+      # and for the profile given: P<TAB>its __profiles row, S<TAB>status
+      local n e
+      printf 'D\t%s\n' "$(get_default)"
+      while read -r n; do
+        e=$(expiry_of "$n"); [[ -n "$e" ]] || continue
+        e=$(date -d "$e" +%s 2>/dev/null) && printf 'E\t%s\t%s\n' "$n" "$e"
+      done < <(awk '/^\[/ { gsub(/[][ ]/, ""); print }' "$AWS_CREDS" 2>/dev/null)
+      if [[ -n ${1:-} ]]; then
+        profiles_tsv | awk -F'\t' -v p="$1" '$1 == p { print "P\t" $0 }'
+        printf 'S\t%s\n' "$(status_text "$1")"
+      fi
+      ;;
+    __kx)            # for kx in one run: N<TAB>profile, A<TAB>account<TAB>label, S<TAB>profile<TAB>status
+      local n a
+      profile_names | sed 's/^/N\t/'
+      accounts_tsv | sed 's/^/A\t/'
+      for n in "$@"; do printf 'S\t%s\t%s\n' "$n" "$(status_text "$n")"; done
+      ;;
     __expiries)      # "profile epoch" for every profile with an expiry stamp
       local n e
       while read -r n; do

@@ -12,9 +12,9 @@
 
 set -uo pipefail
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
-KX_LIB="$(cd "$(dirname "$SELF")/../lib/kx" && pwd)"
+KX_LIB="$(cd "${SELF%/*}/../lib/kx" && pwd)"
 # unikit's lib/: walk up from here (the layer sits in <unikit>/layers/bluetools)
-ROOT=$(cd "$(dirname "$SELF")/.." && pwd); until [[ -f $ROOT/lib/ui.sh || $ROOT == / ]]; do ROOT=$(dirname "$ROOT"); done
+ROOT=$(cd "${SELF%/*}/.." && pwd); until [[ -f $ROOT/lib/ui.sh || -z $ROOT ]]; do ROOT=${ROOT%/*}; done
 # shellcheck source=../../../lib/ui.sh
 . "$ROOT/lib/ui.sh"
 # shellcheck source=../lib/kx/resources.sh
@@ -41,7 +41,12 @@ command -v kubectl >/dev/null || die "kubectl is not installed: tk install kubec
 
 # One row per context, from the merged view (so per-shell namespaces show):
 #   name cluster user namespace profile eks_cluster region account
-ctx_rows() {
+# ctx_rows_keep: remember them for this run (the picker's start asks several times); _CTX_ROWS=""
+# forgets them again.
+_CTX_ROWS=""
+ctx_rows_keep() { _CTX_ROWS=$(_ctx_rows); }
+ctx_rows() { if [[ -n $_CTX_ROWS ]]; then printf '%s\n' "$_CTX_ROWS"; else _ctx_rows; fi; }
+_ctx_rows() {
   kubectl config view -o jsonpath='{range .contexts[*]}C{"\t"}{.name}{"\t"}{.context.cluster}{"\t"}{.context.user}{"\t"}{.context.namespace}{"\n"}{end}{range .users[*]}U{"\t"}{.name}{"\t"}{range .user.exec.env[*]}{.name}={.value} {end}{"\t"}{range .user.exec.args[*]}{@} {end}{"\n"}{end}' 2>/dev/null |
   awk -F'\t' '
     $1 == "U" {
@@ -74,24 +79,56 @@ ctx_row() {
 
 require_ctx() { ctx_row "$1" >/dev/null || die "No context named '$1' · see: kx ls"; }
 
-current_ctx() { kubectl config current-context 2>/dev/null; }
+current_ctx() { kube_cc "${KUBECONFIG:-$HOME/.kube/config}"; }
 
 # The global default: current-context in the base kubeconfig.
-default_ctx() { KUBECONFIG="$BASE" kubectl config current-context 2>/dev/null; }
+default_ctx() { kube_cc "$BASE"; }
+
+# kube_cc <file:file…>: what `kubectl config current-context` says (the first file that sets
+# it wins), read from the files: kubectl takes ~50 ms to start, and kx asks this often.
+# A file kx can't read that way (JSON) asks kubectl.
+kube_cc() {
+  local f l v IFS=:
+  for f in $1; do
+    [[ -r $f ]] || continue
+    IFS= read -rn1 l <"$f"; [[ $l == "{" ]] && { KUBECONFIG="$1" kubectl config current-context 2>/dev/null; return; }
+    v=""
+    while IFS= read -r l; do [[ $l == current-context:* ]] && { v=${l#current-context:}; break; }; done <"$f"
+    [[ $v == *[[:space:]]#* ]] && v=${v%%[[:space:]]#*}             # a comment after it
+    v=${v#"${v%%[![:space:]]*}"}; v=${v%"${v##*[![:space:]]}"}      # spaces around it
+    [[ $v == \"*\" || $v == \'*\' ]] && v=${v:1:-1}                # quotes
+    [[ -n $v ]] && { printf '%s\n' "$v"; return 0; }
+  done
+  return 1
+}
 
 has_okcli() { command -v okcli >/dev/null; }
 
-_OKCLI_NAMES=""
+# What kx asks okcli, all in one run (okcli takes ~50 ms to start): its profile names, the
+# account labels, and the status of the profiles given. okcli_load once, before a table.
+_OKCLI_NAMES="" _OKCLI_LABELS="" _OKCLI_LOADED=""; declare -A _OKCLI_ST=()
+okcli_load() {   # profile…
+  [[ -z $_OKCLI_LOADED ]] && has_okcli || return 0
+  local k a b; _OKCLI_LOADED=1 _OKCLI_NAMES=$'\n'
+  while IFS=$'\t' read -r k a b; do
+    case $k in
+      N) _OKCLI_NAMES+="$a"$'\n' ;;
+      A) _OKCLI_LABELS+="$a"$'\t'"$b"$'\n' ;;
+      S) _OKCLI_ST[$a]=$b ;;
+    esac
+  done < <(okcli __kx "$@" 2>/dev/null)
+}
+
 profile_exists() {   # true when okcli knows this profile (or okcli isn't installed)
   has_okcli || return 0
-  [[ -n "$_OKCLI_NAMES" ]] || _OKCLI_NAMES=$'\n'"$(okcli __names 2>/dev/null)"$'\n'
+  okcli_load
   [[ "$_OKCLI_NAMES" == *$'\n'"$1"$'\n'* ]]
 }
 
 # "account_id<TAB>label" from okcli, for friendlier ACCOUNT names.
-account_labels() { has_okcli && okcli __accounts 2>/dev/null; }
+account_labels() { okcli_load; printf '%s' "$_OKCLI_LABELS"; }
 
-profile_status() { has_okcli && okcli __status "$1" 2>/dev/null; }
+profile_status() { if [[ -v _OKCLI_ST[$1] ]]; then printf '%s' "${_OKCLI_ST[$1]}"; else has_okcli && okcli __status "$1" 2>/dev/null; fi; }
 
 profile_fresh() {
   local s; s=$(strip_ansi "$(profile_status "$1")")
@@ -140,13 +177,16 @@ context_rows() {
   local cur def rows labels name cluster ns prof eks acct first env auth note lbl
   rows=$(ordered_rows)
   [[ -n "$rows" ]] || { warn "No contexts in $BASE. Add EKS clusters with 'kx sync'."; return 1; }
+  okcli_load $(cut -d"$S" -f5 <<<"$rows" | sort -u)
   cur=$(current_ctx); def=$(default_ctx); labels=$(account_labels)
+  local -A lab=(); local a l
+  while IFS=$'\t' read -r a l; do [[ -n $a ]] && lab[$a]=$l; done <<<"$labels"
   h() { printf '%s' "$C_BOLD$1$C_RESET"; }
   printf '%s\n' "  $(h CONTEXT)$S$(h NAMESPACE)$S$(h 'SIGNS IN AS')$S$(h ENV)$S$(h SESSION)"
   while IFS=$S read -r name cluster _ ns prof eks _ acct; do
     if [[ "$name" == "$cur" ]]; then first="$(ui_mark_here) ${C_BOLD}$name${C_RESET}"; else first="  $name"; fi
     [[ "$name" == "$def" ]] && first+=" $(ui_mark_default)"
-    lbl=$(awk -F'\t' -v a="$acct" '$1 == a { print $2; exit }' <<<"$labels")
+    lbl=""; [[ -n $acct ]] && lbl=${lab[$acct]:-}
     env=$(env_badge "$name $eks")
     if [[ -n "$prof" ]] && has_okcli && ! profile_exists "$prof"; then
       auth="${C_RED}profile gone${C_RESET}  $(ui_hint 'kx tidy')"
@@ -373,8 +413,10 @@ base_ns() { KUBECONFIG="$BASE_FILE" kubectl config view -o jsonpath="{.contexts[
 cmd_pick() {
   if [[ ! -t 1 || ! -t 0 ]] || ! command -v fzf >/dev/null; then cmd_ls; return; fi
   local picked key name cur0 ns0 def0 rc=0
+  ctx_rows_keep
   cur0=$(current_ctx); ns0=$(ctx_row "$cur0" 2>/dev/null | cut -d"$S" -f4); def0=$(default_ctx)
   picked=$(pick_ctx "enter: switch · alt-enter: switch + namespace · ctrl-d: make default · ctrl-x: hide · esc: cancel") || rc=$?
+  _CTX_ROWS=""
   [[ "$(default_ctx)" == "$def0" ]] || keep_here "$cur0" "$ns0"
   (( rc )) && return 0
   [[ -n $picked ]] || return 0
@@ -467,11 +509,11 @@ cmd_off() {
 cmd_current() { local cur; cur=$(current_ctx) && [[ -n "$cur" ]] && printf '%s\n' "$cur"; }
 
 # For ctx and scripts: "context<TAB>namespace<TAB>aws-profile" (empty if none)
-internal_current() {
+internal_current() {   # for ctx, in one run: current<TAB>namespace<TAB>profile<TAB>default (empty: none)
   local cur row ns="" prof=""
-  cur=$(current_ctx); [[ -n "$cur" ]] || return 1
-  row=$(ctx_row "$cur") && IFS=$S read -r _ _ _ ns prof _ _ _ <<<"$row"
-  printf '%s\t%s\t%s\n' "$cur" "${ns:-default}" "$prof"
+  cur=$(current_ctx)
+  [[ -n "$cur" ]] && { row=$(ctx_row "$cur") && IFS=$S read -r _ _ _ ns prof _ _ _ <<<"$row"; ns=${ns:-default}; }
+  printf '%s\t%s\t%s\t%s\n' "$cur" "$ns" "$prof" "$(default_ctx)"
 }
 
 backup_base() {

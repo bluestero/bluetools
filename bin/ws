@@ -8,13 +8,13 @@
 set -uo pipefail
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 # unikit's lib/: walk up from here (the layer sits in <unikit>/layers/bluetools)
-ROOT=$(cd "$(dirname "$SELF")/.." && pwd); until [[ -f $ROOT/lib/ui.sh || $ROOT == / ]]; do ROOT=$(dirname "$ROOT"); done
+ROOT=$(cd "${SELF%/*}/.." && pwd); until [[ -f $ROOT/lib/ui.sh || -z $ROOT ]]; do ROOT=${ROOT%/*}; done
 # shellcheck source=../../../lib/ui.sh
 . "$ROOT/lib/ui.sh"
 # shellcheck source=../../../lib/workspaces.sh
 . "$ROOT/lib/workspaces.sh"
 # shellcheck source=../lib/hat.sh
-. "$(dirname "$SELF")/../lib/hat.sh"
+. "${SELF%/*}/../lib/hat.sh"
 # shellcheck source=../../../lib/inplace.sh
 . "$ROOT/lib/inplace.sh"
 
@@ -134,7 +134,7 @@ open_names() {
         if (best != "") print name[best] }' <(printf '%s\n' "$ENTRIES") - | sort -u
 }
 
-is_open() { grep -Fxq "$1" <<<"$OPEN"; }
+is_open() { [[ $'\n'$OPEN$'\n' == *$'\n'"$1"$'\n'* ]]; }
 
 # ----------------------------------------------------------------- rows ---
 # full path
@@ -142,7 +142,7 @@ ws_info() { printf '%s' "${C_DIM}$(tilde "$1")${C_RESET}"; }
 
 # name<S>shown name (● when open)<S>info<S>its hat: Claude<S>GitHub<S>AWS (lib/hat.sh)
 rows() {
-  local name path
+  local name path _HAT_RULES; hat_rules_keep
   while IFS="$T" read -r name path; do
     [[ -n $name ]] || continue
     if is_open "$name"; then printf '%s\n' "$name$S$(ui_mark_here) $C_GREEN$C_BOLD$name$C_RESET$S$(ws_info "$path")$S$(hat_cells "$path")"
