@@ -33,7 +33,7 @@ IDES=(
   "idea|idea|idea|IntelliJ IDEA"
   "pycharm|pycharm|pycharm|PyCharm"
 )
-ide_field() { local e; for e in "${IDES[@]}"; do [[ ${e%%|*} == "$1" ]] && { cut -d'|' -f"$2" <<<"$e"; return; }; done; }
+ide_field() { local e f; for e in "${IDES[@]}"; do [[ ${e%%|*} == "$1" ]] && { IFS='|' read -ra f <<<"$e"; printf '%s\n' "${f[$2 - 1]}"; return; }; done; }
 ide_ids() { local e; for e in "${IDES[@]}"; do echo "${e%%|*}"; done; }
 ide_known() { [[ -n "$(ide_field "$1" 1)" ]]; }
 ide_installed() { command -v "$(ide_field "$1" 2)" >/dev/null 2>&1; }
@@ -51,9 +51,9 @@ tilde() { printf '%s' "${1/#$HOME/\~}"; }
 
 # name<TAB>path for each listed folder that exists.
 entries() {
-  local p _
+  local p n _
   while IFS="$T" read -r p _; do
-    [[ -d $p ]] && printf '%s\t%s\n' "$(basename "$p")" "$p"
+    n=${p%/}; [[ -d $p ]] && printf '%s\t%s\n' "${n##*/}" "$p"
   done < <(ws_list)
 }
 
@@ -368,7 +368,8 @@ cmd_edit() {
   return 0
 }
 
-ENTRIES=$(entries)
+# the list, read once per run; the picker's header and question keys don't need it
+case "${1:-}" in help|-h|--help|__ides|__tabs|__ide|__wckey) ENTRIES="" ;; *) ENTRIES=$(entries) ;; esac
 
 case "${1:-}" in
   "") picker ;;

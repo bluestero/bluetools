@@ -248,6 +248,7 @@ pick_ctx() {
   # default) opens in this list's header and the list stays open (lib/inplace.sh).
   IP=$(mktemp -d) || return 1; export IP
   ip_set mode list; ip_set hints "$header"
+  ctx_rows >"$IP/ctx_rows"   # for the keys' callbacks (`kx __gate`): kubectl takes ~40 ms each time
   local cb k; cb="$(printf %q "$SELF") __gate"
   local -a binds=(--bind "start:unbind(y,n)")
   for k in enter alt-enter ctrl-x ctrl-d y n esc; do binds+=(--bind "$k:transform:$cb $k {n} {} {q}"); done
@@ -303,6 +304,7 @@ cmd_gate() {   # key position row query
       else pick_default "$pos" "$3"; fi
       return ;;
     enter|alt-enter)
+      [[ -s $IP/ctx_rows ]] && { IFS= read -rd "" _CTX_ROWS <"$IP/ctx_rows"; _CTX_ROWS=${_CTX_ROWS%$'\n'}; }
       row=$(ctx_row "$name") && IFS=$S read -r _ cluster user ns prof _ _ _ <<<"$row"
       if [[ -n "${prof:-}" ]] && has_okcli && ! profile_fresh "$prof"; then
         ip_set key "$k"; ip_set sel "$name"
