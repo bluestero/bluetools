@@ -1014,8 +1014,8 @@ main() {
       ;;
     __kx)            # for kx in one run: N<TAB>profile, A<TAB>account<TAB>label, S<TAB>profile<TAB>status
       local n a
-      profile_names | sed 's/^/N\t/'
-      accounts_tsv | sed 's/^/A\t/'
+      while IFS=$'\t' read -r n _; do printf 'N\t%s\n' "$n"; done < <(profiles_tsv)
+      while IFS= read -r a; do printf 'A\t%s\n' "$a"; done < <(accounts_tsv)
       for n in "$@"; do printf 'S\t%s\t%s\n' "$n" "$(status_text "$n")"; done
       ;;
     __expiries)      # "profile epoch" for every profile with an expiry stamp
