@@ -23,11 +23,10 @@ Work tools for [unikit](https://github.com/bluestero/unikit)'s `tk`: AWS profile
 You need [unikit](https://github.com/bluestero/unikit#get-it) first. Then:
 
 ```bash
-uk layer add git@github.com:bluestero/bluetools.git bluetools
-tk install --layer=bluetools
+uk layer add bluetools     # shows what runs here, asks, then offers to set up its parts
 ```
 
-unikit shows what of it runs on your machine and asks first. `uk update` keeps it current.
+Or tick it on unikit's first run (`install.sh` offers it). `uk update` keeps it current.
 
 **First run:**
 
