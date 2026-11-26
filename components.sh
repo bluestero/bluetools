@@ -87,7 +87,7 @@ fetch_kubectl() {
   sum=$(curl -fsS -m 10 "$url.sha256" 2>>"$log_file") || { warn "couldn't get kubectl's checksum"; return 1; }
   tmp=$(mktemp -d)
   fetch_checked "$url" "$sum" "$tmp/kubectl" && mkdir -p "$HOME/.local/bin" &&
-    install -m 755 "$tmp/kubectl" "$HOME/.local/bin/kubectl" && rc=0
+    put_copy -m 755 "$tmp/kubectl" "$HOME/.local/bin/kubectl" && rc=0
   rm -rf "$tmp"
   (( rc )) || logf "kubectl $v installed to ~/.local/bin"
   return "$rc"
@@ -168,7 +168,7 @@ fetch_gh() {
   gh_latest cli/cli "gh_{v}_linux_$(dl_arch).tar.gz" || { warn "couldn't find the latest gh (offline?)"; return 1; }
   tmp=$(mktemp -d) d="gh_${GH_VER}_linux_$(dl_arch)"
   fetch_checked "$GH_URL" "$GH_SHA" "$tmp/dl" && tar xzf "$tmp/dl" -C "$tmp" "$d/bin/gh" 2>>"$log_file" &&
-    mkdir -p "$HOME/.local/bin" && install -m 755 "$tmp/$d/bin/gh" "$HOME/.local/bin/gh" && rc=0
+    mkdir -p "$HOME/.local/bin" && put_copy -m 755 "$tmp/$d/bin/gh" "$HOME/.local/bin/gh" && rc=0
   rm -rf "$tmp"
   (( rc )) || logf "gh $GH_VER installed to ~/.local/bin"
   return "$rc"
@@ -420,7 +420,7 @@ ch_write() {   # ch_write add|remove [command event matcher]
   local tmp b; tmp=$(mktemp)
   ch_json "$@" >"$tmp" || { rm -f "$tmp"; fail "couldn't read ${ch_settings/#$HOME/\~} (not valid JSON?)"; return 1; }
   mkdir -p "$claude_dir"; b=$(backup "$ch_settings")
-  cat "$tmp" >"$ch_settings"; rm -f "$tmp"
+  put_out "$ch_settings" cat "$tmp"; rm -f "$tmp"
   logf "  $1 ${3:-SessionStart} hook in $ch_settings${b:+ (backup: $b)}"
   ok "done${b:+ (backup: ${b/#$HOME/\~})}"
 }
@@ -520,7 +520,7 @@ install_bt_notify() {
   if [[ $(cat "$btn_unit" 2>/dev/null) == "$(btn_body)" ]] && btn_on; then ok "already installed"; return; fi
   ask "Show a short notification when earbuds switch between Headset and Handsfree?" || { skip; return; }
   dry && return 0
-  mkdir -p "${btn_unit%/*}" && btn_body >"$btn_unit" || return 1
+  mkdir -p "${btn_unit%/*}" && put_out "$btn_unit" btn_body || return 1
   systemctl --user daemon-reload >>"$log_file" 2>&1
   systemctl --user enable --now k-bt-notify.service >>"$log_file" 2>&1 && ok "on (uninstall bt-notify to turn it off)" ||
     { fail "systemctl could not start it (see $log_file)"; return 1; }
