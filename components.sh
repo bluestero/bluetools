@@ -4,9 +4,9 @@
 
 bluetools_root="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 COMPONENTS+=(okta-aws-cli aws-cli direnv kubectl eks-clusters twingate gh clipboard zed vscode bluetools-window-calls repos claude-hook claude-guard)
-GROUP_ABOUT[Apps]="Programs the commands use: gh for hat's GitHub sign-ins, a clipboard tool, Zed or VS Code and Window Calls for ws."
+GROUP_ABOUT[Apps]="Programs the commands use: gh, a clipboard tool, an editor, Window Calls."
 GROUP_ABOUT[Workspaces]="Your repos, cloned from your workspace list (ws edit)."
-GROUP_ABOUT[Cloud]="What okcli, kx and twin run on: Okta sign-in for AWS, the aws command, direnv for folder pins, kubectl, your EKS clusters, Twingate."
+GROUP_ABOUT[Cloud]="What okcli, kx and twin run on: Okta, aws, direnv, kubectl, Twingate."
 
 # ------------------------------------------------------------- okcli ---
 # okta-aws-cli and the AWS CLI (okcli), direnv (okcli pin): the newest release for this CPU,
@@ -32,7 +32,7 @@ awscli_dir="$HOME/.local/aws-cli"
 group_aws_cli() { echo Cloud; }
 requires_aws_cli() { echo linux; }
 label_aws_cli() { echo "AWS CLI v2"; }
-title_aws_cli() { echo "The aws command: okcli whoami, kx's EKS sign-in and kx sync need it"; }
+title_aws_cli() { echo "The aws command, for okcli and kx"; }
 detail_aws_cli() { echo "latest AWS CLI v2 from awscli.amazonaws.com in ${awscli_dir/#$HOME/\~}, aws and aws_completer in ~/.local/bin"; }
 state_aws_cli() { tool_state aws; }
 install_aws_cli() {
@@ -59,7 +59,7 @@ uninstall_aws_cli() {
 group_direnv() { echo Cloud; }
 requires_direnv() { echo linux; }
 label_direnv() { echo "direnv"; }
-title_direnv() { echo "direnv, so okcli pin switches the AWS profile when you cd into a folder"; }
+title_direnv() { echo "direnv: okcli pins switch the AWS profile per folder"; }
 detail_direnv() { echo "latest direnv from GitHub (sha256-checked) in ~/.local/bin; bluetools' shell setup hooks it in"; }
 state_direnv() { tool_state direnv; }
 install_direnv() { get_tool direnv "okcli pin needs it" "about 10 MB" fetch_direnv; }
@@ -159,7 +159,7 @@ uninstall_twingate() { apt_drop twingate Twingate; }
 group_gh() { echo Apps; }
 requires_gh() { echo linux; }
 label_gh() { echo "GitHub CLI (gh)"; }
-title_gh() { echo "The gh command: hat signs it in per GitHub account, for PRs and the API"; }
+title_gh() { echo "The gh command, signed in per account by hat"; }
 detail_gh() { echo "latest gh from GitHub (sha256-checked) in ~/.local/bin"; }
 state_gh() { tool_state gh; }
 install_gh() { get_tool gh "hat signs it in to your GitHub accounts" "about 15 MB" fetch_gh; }
@@ -180,7 +180,7 @@ clip_pkg() { [[ ${XDG_SESSION_TYPE:-} == x11 ]] && echo xclip || echo wl-clipboa
 group_clipboard() { echo Apps; }
 requires_clipboard() { echo apt; }
 label_clipboard() { echo "Clipboard tool"; }
-title_clipboard() { echo "wl-copy (xclip on X11), so hat can copy keys and sign-in codes for you"; }
+title_clipboard() { echo "A clipboard tool, so hat can copy codes for you"; }
 detail_clipboard() { echo "$(clip_pkg) (apt) if neither wl-copy nor xclip is installed"; }
 state_clipboard() { NOTE=""; if type -P wl-copy >/dev/null || type -P xclip >/dev/null; then STATE=installed; else STATE=missing; fi; }
 install_clipboard() {
@@ -247,7 +247,7 @@ btwc_present() { [[ -d "$HOME/.local/share/gnome-shell/extensions/$btwc_uuid" ]]
 btwc_live() { gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell/Extensions/Windows \
   --method org.gnome.Shell.Extensions.Windows.List >/dev/null 2>&1; }
 label_bluetools_window_calls() { echo "Window Calls"; }
-title_bluetools_window_calls() { echo "Let ws close and focus editor windows (GNOME extension; log out once)"; }
+title_bluetools_window_calls() { echo "Lets ws focus and close editor windows (log out once)"; }
 touches_bluetools_window_calls() { echo "$HOME/.local/share/gnome-shell/extensions/$btwc_uuid"; }
 group_bluetools_window_calls() { echo Apps; }
 requires_bluetools_window_calls() { echo gnome; }
@@ -312,7 +312,7 @@ repos_todo() {   # <path><TAB><owner/repo> for each listed repo not cloned yet
 }
 group_repos() { echo Workspaces; }
 label_repos() { echo "Workspace repos"; }
-title_repos() { echo "Clone the repos in your workspace list (ws edit) that aren't there yet"; }
+title_repos() { echo "Clone the workspace repos you don't have yet"; }
 detail_repos() { echo "git clone over SSH into the folders your workspace list names; creates ~/.config/ws/workspaces"; }
 state_repos() {
   local all todo
@@ -427,7 +427,7 @@ ch_write() {   # ch_write add|remove [command event matcher]
 ch_has() { ch_json has 2>/dev/null; }
 group_claude_hook() { echo "Claude Code"; }
 label_claude_hook() { echo "Claude start hook"; }
-title_claude_hook() { echo "Every Claude Code session starts knowing your AWS profile, pin and cluster"; }
+title_claude_hook() { echo "Claude sessions start knowing your AWS and cluster"; }
 detail_claude_hook() { echo "a SessionStart hook in each Claude profile's settings.json that runs: $ch_cmd"; }
 state_claude_hook() { claude_state ch_has; }
 ch_install() { ch_has && return
@@ -461,7 +461,7 @@ uninstall_claude_guard() { claude_each cgd_uninstall; }
 btl="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 COMPONENTS+=(bt-audio bt-notify)
 group_bt_audio() { echo "Desktop (GNOME)"; }; group_bt_notify() { echo "Desktop (GNOME)"; }
-GROUP_ABOUT["Desktop (GNOME)"]="Bluetooth earbuds: music mode that survives reconnects, Handsfree during calls, a note when they switch."
+GROUP_ABOUT["Desktop (GNOME)"]="Bluetooth earbuds: music mode that lasts, Handsfree in calls."
 requires_bt_audio() { echo linux; }; requires_bt_notify() { echo linux; }
 
 # ------------------------------------------------------------ bt-audio ---
@@ -475,7 +475,7 @@ bta_roles="$HOME/.config/wireplumber/bluetooth.lua.d/51-unikit-roles.lua"; bta_r
 bta_calls="$HOME/.config/pipewire/pipewire-pulse.conf.d/51-unikit-calls.conf"; bta_calls_src="$btl/audio/51-unikit-calls.conf"
 bta_wp() { wireplumber --version 2>/dev/null | sed -n 's/.*libwireplumber \([0-9.]*\).*/\1/p'; }
 label_bt_audio() { echo "Bluetooth earbuds"; }
-title_bt_audio() { echo "earbuds keep music mode after reconnecting, and switch to Handsfree while a call (browser, Slack) has the mic"; }
+title_bt_audio() { echo "Earbuds keep music mode; Handsfree during calls"; }
 detail_bt_audio() { echo "${bta_roles/#$HOME/\~} -> bluetools/audio/wireplumber/51-unikit-roles.lua, ${bta_calls/#$HOME/\~} -> bluetools/audio/51-unikit-calls.conf; takes effect at the next login"; }
 touches_bt_audio() { echo "$bta_roles"; echo "$bta_calls"; }
 state_bt_audio() { NOTE=""
@@ -508,7 +508,7 @@ btn_body() { printf '%s\n' "[Unit]" "Description=unikit: notify when Bluetooth e
   "" "[Install]" "WantedBy=default.target"; }
 btn_on() { systemctl --user is-enabled k-bt-notify.service >/dev/null 2>&1; }
 label_bt_notify() { echo "Earbud mode notifications"; }
-title_bt_notify() { echo "a short notification when earbuds switch to Handsfree (mic on) and back to Headset (music)"; }
+title_bt_notify() { echo "A notification when earbuds switch modes"; }
 detail_bt_notify() { echo "${btn_unit/#$HOME/\~} runs bluetools/audio/bin/k-bt-notify at login (systemd user service)"; }
 state_bt_notify() { NOTE=""
   type -P pw-dump >/dev/null || { STATE=unsupported; NOTE="needs PipeWire"; return; }
