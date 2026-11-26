@@ -674,10 +674,13 @@ remove_ctx() {
 }
 
 # Removes contexts from ~/.kube/config. kx sync offers them again.
+#   kx rm --yes <context>...   without asking (the eks-clusters part's uninstall, which asked already)
 cmd_rm() {
+  local yes=0
+  [[ "${1:-}" == "--yes" || "${1:-}" == "-y" ]] && { yes=1; shift; }
   [[ $# -ge 1 ]] || die "Usage: kx rm <context>...  (kx ignore <context> also stops kx sync re-adding it)"
   local n; for n in "$@"; do require_ctx "$n"; done
-  confirm "Remove $* from $BASE_FILE?" n || { info "Nothing changed."; return 0; }
+  (( yes )) || confirm "Remove $* from $BASE_FILE?" n || { info "Nothing changed."; return 0; }
   backup_base
   for n in "$@"; do remove_ctx "$n" && ok "removed $n" || warn "couldn't remove $n"; done
   info "${C_DIM}kx sync can add them back. To stop it offering them: kx ignore <context>${C_RESET}"

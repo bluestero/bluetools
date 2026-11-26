@@ -8,7 +8,7 @@
 | `aws-cli` | AWS CLI v2 in `~/.local/aws-cli`: `okcli whoami`, kx's EKS sign-in |
 | `direnv` | direnv in `~/.local/bin`: `okcli pin` switches the profile per folder |
 | `kubectl` | kubectl from dl.k8s.io in `~/.local/bin`: kx runs on it |
-| `eks-clusters` | runs `kx sync`: tick the AWS accounts, then the EKS clusters kx shows |
+| `eks-clusters` | runs `kx sync`: tick the AWS accounts, then the EKS clusters kx shows. Uninstall offers to remove those clusters and the skip list (default No; `kx rm` backs `~/.kube/config` up first) |
 | `twingate` | the Twingate client (its installer, sudo; then `sudo twingate setup` once) |
 | `gh` | the GitHub CLI from GitHub in `~/.local/bin`: hat signs it in per account |
 | `clipboard` | wl-copy (xclip on X11), so hat can copy keys and sign-in codes |

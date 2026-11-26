@@ -98,7 +98,12 @@ uninstall_kubectl() { drop_tool kubectl; }
 # Runs kx sync: tick the AWS accounts to search, then the clusters to add.
 # Unticked ones go in ~/.config/kx/ignore, so later syncs skip them.
 kx_ignore_file="${XDG_CONFIG_HOME:-$HOME/.config}/kx/ignore"
-eks_contexts() { KUBECONFIG="${KX_BASE_KUBECONFIG:-$HOME/.kube/config}" kubectl config get-contexts -o name 2>/dev/null | grep -c .; }
+# What kx sync adds: EKS contexts (aws eks update-kubeconfig, an arn:aws:eks:… cluster)
+eks_context_names() {
+  KUBECONFIG="${KX_BASE_KUBECONFIG:-$HOME/.kube/config}" kubectl config view \
+    -o jsonpath='{range .contexts[*]}{.name}{"\t"}{.context.cluster}{"\n"}{end}' 2>/dev/null | awk -F'\t' '$2 ~ /^arn:aws:eks:/ { print $1 }'
+}
+eks_contexts() { eks_context_names | grep -c .; }
 group_eks_clusters() { echo Cloud; }
 NEEDS[eks-clusters]="kubectl aws-cli"
 label_eks_clusters() { echo "EKS clusters"; }
@@ -122,8 +127,18 @@ install_eks_clusters() {
   if "$bluetools_root/bin/kx" sync </dev/tty >/dev/tty 2>&1; then ok "done ${D}(kx ignore shows what's skipped)${R}"
   else warn "kx sync didn't finish; run it again with: kx sync"; fi
 }
+# Asks before removing them (default no; --yes keeps them): kx rm backs the file up first.
 uninstall_eks_clusters() {
-  kept "your clusters stay in ~/.kube/config" "your clusters stay in ~/.kube/config (kx rm <context> removes one); the skip list stays in ${kx_ignore_file/#$HOME/\~}"
+  local -a ctxs; mapfile -t ctxs < <(type -P kubectl >/dev/null && eks_context_names)
+  local list="" ign=${kx_ignore_file/#$HOME/\~}
+  (( ${#ctxs[@]} )) && list="the ${#ctxs[@]} EKS cluster(s) in ~/.kube/config (${ctxs[*]})"
+  [[ -e $kx_ignore_file ]] && list+="${list:+ and }kx sync's skip list ($ign)"
+  [[ -n $list ]] || { ok "no EKS clusters to remove"; return 0; }
+  if [[ $mode != yes ]] && ask "Remove $list? (kx sync can add them back)" n; then
+    dry && return 0
+    if (( ${#ctxs[@]} )) && ! "$bluetools_root/bin/kx" rm --yes "${ctxs[@]}"; then fail "kx rm failed (see above)"; return 0; fi
+    rm -f "$kx_ignore_file"; ok "removed"
+  else kept "your clusters stay in ~/.kube/config" "your clusters stay in ~/.kube/config (kx rm <context> removes one); the skip list stays in $ign"; fi
 }
 
 # -------------------------------------------------------------- twin ---
