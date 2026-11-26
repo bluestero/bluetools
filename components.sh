@@ -123,7 +123,7 @@ install_eks_clusters() {
   else warn "kx sync didn't finish; run it again with: kx sync"; fi
 }
 uninstall_eks_clusters() {
-  ok "your clusters stay in ~/.kube/config (kx rm <context> removes one); the skip list stays in ${kx_ignore_file/#$HOME/\~}"
+  kept "your clusters stay in ~/.kube/config" "your clusters stay in ~/.kube/config (kx rm <context> removes one); the skip list stays in ${kx_ignore_file/#$HOME/\~}"
 }
 
 # -------------------------------------------------------------- twin ---
@@ -210,7 +210,7 @@ install_zed() {
 }
 uninstall_zed() {
   [[ -d $HOME/.local/zed.app ]] || { drop_tool zed; return; }
-  ask "Remove Zed? (your Zed settings stay)" n || { ok "Zed stays"; return; }
+  ask "Remove Zed? (your Zed settings stay)" n || { kept "you kept it" "Zed stays"; return; }
   dry || { zed --uninstall >>"$log_file" 2>&1 </dev/null || rm -rf "$HOME/.local/zed.app" "$HOME/.local/bin/zed"; ok "removed"; }
 }
 
